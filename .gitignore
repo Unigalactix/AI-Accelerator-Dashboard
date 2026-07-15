@@ -1,0 +1,6 @@
+# Local runtime config — provided at deploy time from GitHub repo secrets.
+.env
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
