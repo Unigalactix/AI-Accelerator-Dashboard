@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Accelerator Portfolio — Leadership View</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+<style>
+  :root {
+    --ink:#0d1b2a; --ink2:#1b2b3f; --slate:#5a6b80; --mist:#8a99ad;
+    --paper:#f6f4ef; --card:#ffffff; --line:#e4e0d6;
+    --teal:#0f766e; --teal-soft:#d7ede9;
+    --amber:#b7791f; --amber-soft:#f4e7cd;
+    --rose:#a1362f; --rose-soft:#f3ddd9;
+    --violet:#5b4b8a; --violet-soft:#e6e1f0;
+    --grid: 68px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background:var(--paper); color:var(--ink);
+    font-family:'Helvetica Neue',Arial,sans-serif;
+    -webkit-font-smoothing:antialiased; line-height:1.45;
+  }
+  .wrap { max-width:1180px; margin:0 auto; padding:0 28px 80px; }
+
+  /* Masthead */
+  header.top {
+    border-bottom:2px solid var(--ink);
+    padding:34px 0 20px; margin-bottom:6px;
+    display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;
+  }
+  .brand-eyebrow {
+    font-size:11px; letter-spacing:.28em; text-transform:uppercase;
+    color:var(--teal); font-weight:700; margin-bottom:8px;
+  }
+  h1 {
+    font-family:Georgia,'Times New Roman',serif; font-weight:700;
+    font-size:40px; line-height:1.02; letter-spacing:-.5px; color:var(--ink);
+  }
+  h1 em { font-style:italic; color:var(--teal); }
+  .masthead-meta { text-align:right; font-size:12px; color:var(--slate); }
+  .masthead-meta strong { display:block; font-size:26px; color:var(--ink); font-family:Georgia,serif; }
+
+  /* KPI band */
+  .kpis {
+    display:grid; grid-template-columns:repeat(5,1fr); gap:1px;
+    background:var(--line); border:1px solid var(--line);
+    margin:26px 0 40px;
+  }
+  .kpi { background:var(--card); padding:20px 18px; }
+  .kpi .n { font-family:Georgia,serif; font-size:34px; line-height:1; color:var(--ink); font-weight:700; }
+  .kpi .n small { font-size:15px; color:var(--mist); font-weight:400; }
+  .kpi .l { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--slate); margin-top:8px; }
+  .kpi .sub { font-size:11.5px; color:var(--mist); margin-top:3px; }
+  .kpi.accent-teal { border-top:3px solid var(--teal); }
+  .kpi.accent-amber { border-top:3px solid var(--amber); }
+  .kpi.accent-rose { border-top:3px solid var(--rose); }
+  .kpi.accent-violet { border-top:3px solid var(--violet); }
+  .kpi.accent-ink { border-top:3px solid var(--ink); }
+  /* Clickable / drill-down KPI cards */
+  .kpi.drill { cursor:pointer; position:relative; transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
+  .kpi.drill:hover { background:#fffdf8; box-shadow:0 6px 20px rgba(13,27,42,.10); transform:translateY(-2px); z-index:2; }
+  .kpi.drill:focus-visible { outline:2px solid var(--teal); outline-offset:-2px; }
+  .kpi .drill-hint {
+    position:absolute; right:14px; bottom:12px; font-size:10px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--mist); opacity:0; transition:opacity .12s ease;
+  }
+  .kpi.drill:hover .drill-hint { opacity:1; }
+
+  /* Section head */
+  .sec-head { display:flex; align-items:baseline; gap:14px; margin:38px 0 18px; }
+  .sec-head .num { font-family:Georgia,serif; font-style:italic; color:var(--mist); font-size:20px; }
+  .sec-head h2 { font-size:15px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--ink); }
+  .sec-head .rule { flex:1; height:1px; background:var(--line); }
+
+  .cols2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
+  .cols3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; }
+
+  .panel { background:var(--card); border:1px solid var(--line); padding:22px; }
+  .panel h3 { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--slate); margin-bottom:16px; font-weight:700; }
+
+  /* Horizontal bars */
+  .bar-row { margin-bottom:13px; }
+  .bar-row .lab { display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:5px; color:var(--ink2); }
+  .bar-row .lab b { font-family:Georgia,serif; }
+  .track { height:9px; background:#eeeae1; border-radius:0; overflow:hidden; }
+  .fill { height:100%; }
+
+  /* Readiness / risk callouts */
+  .flag { display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--line); }
+  .flag:last-child { border-bottom:0; }
+  .flag .big { font-family:Georgia,serif; font-size:30px; font-weight:700; line-height:1; min-width:64px; }
+  .flag .txt { font-size:12.5px; color:var(--slate); padding-top:3px; }
+  .flag .txt b { color:var(--ink); }
+  .rose { color:var(--rose); } .amber { color:var(--amber); } .teal { color:var(--teal); }
+
+  /* Table */
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 14px; }
+  .toolbar input {
+    flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--line);
+    background:var(--card); font-size:13px; color:var(--ink); font-family:inherit;
+  }
+  .chip {
+    padding:7px 13px; border:1px solid var(--line); background:var(--card);
+    font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+    color:var(--slate); user-select:none;
+  }
+  .chip.on { background:var(--ink); color:#fff; border-color:var(--ink); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  thead th {
+    text-align:left; padding:10px 10px; border-bottom:2px solid var(--ink);
+    font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--slate);
+    cursor:pointer; white-space:nowrap;
+  }
+  thead th:hover { color:var(--ink); }
+  thead tr.filters th { padding:6px 8px 10px; border-bottom:1px solid var(--line); cursor:default; }
+  thead tr.filters th:hover { color:var(--slate); }
+  thead tr.filters select {
+    width:100%; min-width:70px; max-width:150px; padding:5px 6px; font-family:inherit;
+    font-size:11px; color:var(--ink); background:var(--card); border:1px solid var(--line);
+    cursor:pointer; text-transform:none; letter-spacing:0;
+  }
+  thead tr.filters select:focus { outline:1px solid var(--teal); }
+  thead tr.filters select.active { border-color:var(--ink); background:var(--ink); color:#fff; }
+  tbody td { padding:11px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tbody tr:hover { background:#faf8f3; }
+  .aname { font-weight:600; color:var(--ink); }
+  .aid { font-size:10.5px; color:var(--mist); font-family:'Courier New',monospace; }
+  .tag {
+    display:inline-block; padding:2px 8px; font-size:10.5px; letter-spacing:.03em;
+    border-radius:20px; font-weight:600; white-space:nowrap;
+  }
+  .t-agent{background:var(--teal-soft);color:var(--teal);}
+  .t-q{background:var(--violet-soft);color:var(--violet);}
+  .t-acc{background:var(--amber-soft);color:var(--amber);}
+  .sec { display:inline-block; padding:2px 8px; font-size:10px; letter-spacing:.03em; border-radius:20px; font-weight:600; white-space:nowrap; }
+  .sec-ok { background:var(--teal-soft); color:var(--teal); }
+  .sec-warn { background:var(--rose-soft); color:var(--rose); }
+  .sec-none { background:#efece4; color:var(--mist); }
+  .dot { display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; }
+  .d-active{background:var(--teal);} .d-dev{background:var(--amber);} .d-none{background:var(--mist);}
+  .meter { display:flex; align-items:center; gap:8px; }
+  .meter .track2 { width:52px; height:6px; background:#eeeae1; }
+  .meter .f2 { height:100%; background:var(--ink); }
+  .meter span { font-size:11px; color:var(--slate); font-family:'Courier New',monospace; }
+  .miss { color:var(--rose); font-weight:700; font-size:14px; }
+  .ok { color:var(--teal); font-weight:700; font-size:14px; }
+  footer { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); font-size:11px; color:var(--mist); }
+  /* Live data-source bar */
+  .datasource {
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--card); border:1px solid var(--line);
+    padding:10px 16px; margin:0 0 4px; font-size:12px; color:var(--slate);
+  }
+  .ds-dot { width:9px; height:9px; border-radius:50%; background:var(--mist); flex:none; box-shadow:0 0 0 3px rgba(0,0,0,.03); }
+  .ds-dot.ok { background:var(--teal); }
+  .ds-dot.idle { background:var(--amber); }
+  .ds-dot.err { background:var(--rose); }
+  #dsText { font-weight:600; color:var(--ink2); }
+  .ds-time { margin-left:auto; font-size:11px; color:var(--mist); }
+  .ds-btn { margin-left:12px; font:inherit; font-size:12px; font-weight:600; color:#fff;
+    background:var(--teal); border:none; padding:7px 14px; border-radius:6px; cursor:pointer; }
+  .ds-btn:hover { background:#0b5c56; }
+  /* Drill-down modal */
+  .drawer-back {
+    position:fixed; inset:0; background:rgba(13,27,42,.42); backdrop-filter:blur(2px);
+    display:none; align-items:flex-start; justify-content:center; z-index:100;
+    opacity:0; transition:opacity .18s ease; padding:40px 20px; overflow:auto;
+  }
+  .drawer-back.open { display:flex; opacity:1; }
+  .drawer {
+    background:var(--paper); border:1px solid var(--line); width:100%; max-width:940px;
+    box-shadow:0 24px 70px rgba(13,27,42,.35); transform:translateY(-14px);
+    transition:transform .2s ease; margin:auto;
+  }
+  .drawer-back.open .drawer { transform:translateY(0); }
+  .drawer-head {
+    display:flex; align-items:flex-start; gap:16px; padding:22px 26px 18px;
+    border-bottom:2px solid var(--ink); position:sticky; top:0; background:var(--paper);
+  }
+  .drawer-head .dt-eyebrow { font-size:10.5px; letter-spacing:.22em; text-transform:uppercase; color:var(--teal); font-weight:700; }
+  .drawer-head h3 { font-family:Georgia,serif; font-size:26px; color:var(--ink); line-height:1.05; margin-top:5px; }
+  .drawer-head .dt-sub { font-size:12px; color:var(--slate); margin-top:6px; }
+  .drawer-head .dt-count { margin-left:auto; text-align:right; flex:none; }
+  .drawer-head .dt-count b { font-family:Georgia,serif; font-size:34px; color:var(--ink); display:block; line-height:1; }
+  .drawer-head .dt-count span { font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--mist); }
+  .drawer-close {
+    background:none; border:1px solid var(--line); color:var(--slate); cursor:pointer;
+    width:30px; height:30px; font-size:18px; line-height:1; flex:none; font-family:inherit;
+  }
+  .drawer-close:hover { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .drawer-body { padding:6px 26px 26px; max-height:66vh; overflow:auto; }
+  .drawer-body table { margin-top:6px; }
+  .drawer-empty { padding:40px 6px; text-align:center; color:var(--mist); font-size:13px; }
+  @media(max-width:860px){
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .cols2,.cols3{grid-template-columns:1fr;}
+    h1{font-size:30px;}
+    .hide-sm{display:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <div class="brand-eyebrow">AI Center of Excellence &middot; Portfolio Intelligence</div>
+      <h1>The <em>Accelerator</em> &amp;<br>Agent Portfolio</h1>
+    </div>
+    <div class="masthead-meta">
+      <strong id="totalCount">62</strong>
+      assets under management<br>
+      Snapshot &middot; <span id="today"></span>
+    </div>
+  </header>
+
+  <div class="datasource" id="ds">
+    <span class="ds-dot" id="dsDot"></span>
+    <span id="dsText">Embedded snapshot</span>
+    <span class="ds-time" id="dsTime"></span>
+    <button class="ds-btn" id="dsSignin" style="display:none">Sign in to SharePoint</button>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="sec-head"><span class="num">i.</span><h2>Portfolio Composition</h2><span class="rule"></span></div>
+  <div class="cols3">
+    <div class="panel"><h3>By Business Unit</h3><div id="buBars"></div></div>
+    <div class="panel"><h3>By Domain</h3><div id="domBars"></div></div>
+    <div class="panel"><h3>By Asset Type</h3><div id="typeBars"></div></div>
+  </div>
+
+  <div class="sec-head"><span class="num">ii.</span><h2>Readiness &amp; Governance Signals</h2><span class="rule"></span></div>
+  <div class="cols2">
+    <div class="panel">
+      <h3>Where the portfolio needs attention</h3>
+      <div id="flags"></div>
+    </div>
+    <div class="panel">
+      <h3>Maturity distribution</h3>
+      <div id="matBars"></div>
+      <p style="font-size:11.5px;color:var(--mist);margin-top:14px;line-height:1.5;">
+        Maturity is recorded for only a fraction of assets today. Filling this field is the single highest-leverage
+        data fix &mdash; it is what lets leadership separate demo-stage work from launch-ready assets.
+      </p>
+    </div>
+  </div>
+
+  <div class="sec-head"><span class="num">iii.</span><h2>Asset Register</h2><span class="rule"></span></div>
+  <div class="toolbar">
+    <input id="search" placeholder="Search by name, owner, domain&hellip;">
+    <span class="chip on" data-f="all">All</span>
+    <span class="chip" data-f="AI Agent">Agents</span>
+    <span class="chip" data-f="Q-Suite Product">Q-Suite</span>
+    <span class="chip" data-f="incomplete">Needs data &lt;50%</span>
+  </div>
+  <table id="tbl">
+    <thead>
+      <tr>
+      <th data-s="name">Asset</th>
+      <th data-s="type">Type</th>
+      <th data-s="bu" class="hide-sm">BU</th>
+      <th data-s="owner" class="hide-sm">Owner</th>
+      <th data-s="domain" class="hide-sm">Domain</th>
+      <th data-s="maturity">Maturity</th>
+      <th data-s="status">Status</th>
+      <th data-s="security" class="hide-sm">Security</th>
+      <th data-s="hosting" class="hide-sm">Hosting</th>
+      <th data-s="hasRepo" class="hide-sm">Repo</th>
+      <th data-s="complete">Data</th>
+      </tr>
+      <tr class="filters">
+        <th></th>
+        <th><select data-col="type"></select></th>
+        <th class="hide-sm"><select data-col="bu"></select></th>
+        <th class="hide-sm"><select data-col="owner"></select></th>
+        <th class="hide-sm"><select data-col="domain"></select></th>
+        <th><select data-col="maturity"></select></th>
+        <th><select data-col="status"></select></th>
+        <th class="hide-sm"><select data-col="security"></select></th>
+        <th class="hide-sm"><select data-col="hosting"></select></th>
+        <th class="hide-sm"><select data-col="hasRepo"></select></th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <footer>
+    Generated from <b>AI_Accelerator_Agent_Inventory_Template.xlsx</b> &middot; Asset Register sheet (62 rows).
+    Categories (domain, type, maturity, status) were normalized from free-text entries for this view.
+    &ldquo;Data&rdquo; = completeness across 8 leadership-critical fields (owner, status, maturity, storage, domain,
+    security review, savings, documentation).
+  </footer>
+</div>
+
+<div class="drawer-back" id="drawerBack" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+  <div class="drawer">
+    <div class="drawer-head">
+      <div>
+        <div class="dt-eyebrow" id="drawerEyebrow">Drill-down</div>
+        <h3 id="drawerTitle">&nbsp;</h3>
+        <div class="dt-sub" id="drawerSub"></div>
+      </div>
+      <div class="dt-count"><b id="drawerCount">0</b><span>assets</span></div>
+      <button class="drawer-close" id="drawerClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </div>
+</div>
+
+<script>
+const FALLBACK_DATA = [{"id": "ACC-001", "name": "PII Redaction", "type": "AI Agent", "bu": "AI CoE", "owner": "Ananda Dey", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "PII Redaction Accelerator A comprehensive, privacy-first PII redaction tool that processes multiple document formats using intelligent detection and flexible redaction modes. Works **100% locally** with optional AI-power", "savings": "", "complete": 12}, {"id": "ACC-002", "name": "ACC-002", "type": "AI Agent", "bu": "AI CoE", "owner": "Ananda Dey", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": true, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "The SharePoint AI Tagging Accelerator is an intelligent automation tool that automatically classifies, tags, and categorizes documents in Microsoft SharePoint Online using AI-powered rules, natural language processing, a", "savings": "", "complete": 25}, {"id": "ACC-003", "name": "CX_Insights_AI", "type": "AI Agent", "bu": "AI CoE", "owner": "Ananda Dey", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "AI-Driven CX Insights POC is a Streamlit-based web application that derives customer experience insights from publicly available crowdsourced data (Reddit, Google Play Store). It performs AI-powered sentiment analysis, i", "savings": "", "complete": 12}, {"id": "ACC-004", "name": "Document Comparison Agent", "type": "AI Agent", "bu": "AI CoE", "owner": "Deepak Vemula", "status": "Active", "domain": "Government", "maturity": "Experimental", "hosting": "Azure", "hasRepo": true, "hasDoc": true, "hasDemo": true, "security": "Not Reviewed", "desc": "The Document Comparison Tool is an AI-powered application that analyzes and compares differences between document versions using Azure OpenAI. It provides semantic analysis, risk assessment, visual diff highlighting, and", "savings": "70-80% reduction in maunal effort for document comparison", "complete": 100}, {"id": "ACC-005", "name": "Research Agent", "type": "AI Agent", "bu": "AI CoE", "owner": "Spandana Birkur", "status": "Active", "domain": "Enterprise Productivity", "maturity": "Experimental", "hosting": "Azure", "hasRepo": false, "hasDoc": true, "hasDemo": true, "security": "Not Reviewed", "desc": "The Research Agent is an enterprise-grade, multi-agent AI system that performs deep web research, synthesizes cited insights from multiple sources, and automatically generates comprehensive research reports with proper c", "savings": "80% faster research, 100% cited sources, 3x analyst productivity, and zero manual synthesis effort.", "complete": 88}, {"id": "ACC-006", "name": "Research to Slides Agent", "type": "AI Agent", "bu": "AI CoE", "owner": "Meghna Pusala", "status": "Active", "domain": "Enterprise Productivity", "maturity": "Experimental", "hosting": "Azure", "hasRepo": true, "hasDoc": true, "hasDemo": true, "security": "Not Reviewed", "desc": "An autonomous Research \u2192 Slides agent that performs deep web research, synthesizes citation-backed insights, and generates an executive-ready slide deck exported as Markdown, JSON, and PowerPoint (.pptx). Includes multi-", "savings": "50\u201380% reduction in presentation preparation time; significant reduction in manual content synthesis effort", "complete": 100}, {"id": "ACC-007", "name": "Task Extraction Agent", "type": "AI Agent", "bu": "AI CoE", "owner": "Mahalaxmi Anumula", "status": "Active", "domain": "Enterprise Productivity", "maturity": "Production-ready", "hosting": "Azure", "hasRepo": true, "hasDoc": true, "hasDemo": true, "security": "Not Reviewed", "desc": "The Task Extraction Platform is a production-ready AI-powered system that automatically extracts actionable tasks from text, emails, PDFs, and documents using LLM technology. It provides human-in-the-loop review, traceab", "savings": "70\u201390% reduction in manual effort for extracting and tracking action items", "complete": 100}, {"id": "ACC-008", "name": "Document Intelligence Agent", "type": "AI Agent", "bu": "AI CoE", "owner": "Dileep Madamanchi", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "A production-grade document processing agent that transforms unstructured PDFs and images (invoices, IDs, forms) into validated, structured JSON data. It utilizes Azure Document Intelligence for high-fidelity OCR and Azu", "savings": "", "complete": 12}, {"id": "ACC-009", "name": "GTM Outreach Agent", "type": "AI Agent", "bu": "AI CoE", "owner": "Adya Mahlawat", "status": "Active", "domain": "Sales / GTM", "maturity": "Experimental", "hosting": "Azure", "hasRepo": true, "hasDoc": true, "hasDemo": true, "security": "Not Reviewed", "desc": "An autonomous GTM Outreach agent that finds best fit target companies, discovers decision maker contacts, pulls lightweight personalization signals from the web, and drafts high quality outbound emails in your chosen ton", "savings": "Estimated 70\u201380% reduction in manual research and email drafting time per prospect.", "complete": 100}, {"id": "ACC-010", "name": "Digital Credit Officer", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "BFSI", "maturity": "Prototype / Demo", "hosting": "AWS", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not Reviewed", "desc": "Digital Credit Officer is an AI-powered booth demo that puts a Tavus avatar in the role of a senior credit analyst. A visitor drops a small business loan packet onto the screen \u2014 six standard documents including tax retu", "savings": "~6\u20137 hours saved per credit memo; at 200 deals/year/officer = ~1,400 hours/officer/year", "complete": 75}, {"id": "ACC-011", "name": "Sow Generator", "type": "AI Agent", "bu": "AI CoE", "owner": "Shashank Shankaregowda", "status": "Active", "domain": "Enterprise Productivity", "maturity": "Production-ready", "hosting": "Azure", "hasRepo": true, "hasDoc": false, "hasDemo": false, "security": "Not Reviewed", "desc": "Statement of work generator by taking meeting notes as a input, we can provide architechture diagram also and the timeline of that project too, The agenet will generate th SOW using the specific template available", "savings": "Reduced SOW preparation time from several hours to a few minutes (~70\u201385% effort reduction).", "complete": 88}, {"id": "ACC-012", "name": "QLift", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "QLift solves the problem of companies spending 1-2 years and $2-3M to manually move their Oracle databases to the cloud \u2014 by using AI to automatically translate database code, verify accuracy, and complete migrations in ", "savings": "", "complete": 12}, {"id": "ACC-013", "name": "QScout", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Status not set", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "QScout turns competitive intelligence from a labor-intensive manual research process into an automated, goal-driven intelligence system that tells analysts what matters and what to do about it.", "savings": "", "complete": 25}, {"id": "ACC-014", "name": "PriorAuth - provider", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "Hospitals must send approval requests insurers before treating a patient \u2014 a slow, manual process called prior authorization. Provider Side Prior Authorization Agent automates the physician's PA workflow \u2014 drafting, subm", "savings": "", "complete": 38}, {"id": "ACC-015", "name": "PriorAuth - Payer", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "Prior Authorization Intelligence eliminates the 1-14 day manual review bottleneck for medical treatment approvals by deploying an AI agent inside the payer's cloud that reads clinical docs, matches them against medical p", "savings": "", "complete": 38}, {"id": "ACC-016", "name": "QEnvoy", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "QEnvoy helps merchants get discovered, negotiated with, and transacted through AI shopping agents like Gemini, ChatGPT, and Claude\u2014while keeping control of their pricing, brand, and policies.", "savings": "", "complete": 25}, {"id": "ACC-017", "name": "SalesPlan", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered retail planning workspace that sits on top of a retailer\u2019s existing Microsoft Fabric and Power BI data to automatically create weekly sales recaps, forecasts, scenarios, and executive decks \u2014 eliminating th", "savings": "", "complete": 12}, {"id": "ACC-018", "name": "QFluent", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "QFluent assesses and rectifies enterprise data to make it AI-ready, transforming messy, ambiguous datasets into intelligent, semantic-rich foundations that power accurate AI responses.", "savings": "", "complete": 25}, {"id": "ACC-019", "name": "Digital Credit officer", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "Digital Credit Officer solves the problem of commercial loan officers spending 4-8 hours manually building credit memos for small business loans \u2014 pulling financials from tax returns, calculating ratios by hand, googling", "savings": "", "complete": 25}, {"id": "ACC-020", "name": "Card Guard Agent", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "CardGuard is a consumer-facing fraud detection agent \u2014 it monitors an individual customer's credit card transactions, spots unauthorised charges or hidden fees, and sends them a report they can use to raise a dispute.", "savings": "", "complete": 12}, {"id": "ACC-021", "name": "Digital Insurance Underwriter", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "Digital Underwriting Officer (Memo Layer) solves the problem of commercial P&C underwriters spending 6-10 hours manually building underwriting memos by reading submission documents, extracting data into spreadsheets, cro", "savings": "", "complete": 12}, {"id": "ACC-022", "name": "Document Authoring System", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "Document Authoring Platform solves the problem of quality engineers spending 2-5 days manually creating Work Instructions from process videos and dealing with shop floor operators reading outdated versions \u2014 by automatin", "savings": "", "complete": 25}, {"id": "ACC-023", "name": "ECO Impact Analyst", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Active", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "ECO Impact Analyst replaces 30 minutes of manual system-hopping with a 45-second AI analysis that instantly reveals supply chain risks, inventory exposure, and quality conflicts from engineering changes \u2014 with full trace", "savings": "", "complete": 25}, {"id": "ACC-024", "name": "QDojo", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Prakash Karaka", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "QDojo turns your team's domain expertise into reusable Skills that make every AI agent smarter.", "savings": "", "complete": 12}, {"id": "ACC-025", "name": "QSpark", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Vinay Babu Tenali", "status": "Active", "domain": "Enterprise Productivity", "maturity": "MVP / Pilot", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "QSpark is an AI-powered VBA-to-PySpark migration and validation platform that automatically extracts VBA code from Excel files, converts it into PySpark using Large Language Models (LLMs), executes the generated code on ", "savings": "Reduces VBA migration and validation effort by 60\u201380%, accelerates modernization timelines, and significantly lowers man", "complete": 62}, {"id": "ACC-026", "name": "Qmatrix", "type": "Unspecified", "bu": "Unassigned", "owner": "", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "QA workspace", "savings": "", "complete": 0}, {"id": "ACC-027", "name": "QVizPort", "type": "Unspecified", "bu": "Unassigned", "owner": "", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "PowerBI migration from Tableau and SAPBO", "savings": "", "complete": 0}, {"id": "ACC-028", "name": "AI-Powered Invoice Processing System", "type": "Accelerator", "bu": "Vamshi BU", "owner": "Siva Prasad Polepally", "status": "Active", "domain": "BFSI", "maturity": "MVP / Pilot", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Invoice Processing System that automates invoice data extraction, classification, validation, and retrieval using OCR, NLP, and Azure AI services. The solution extracts invoice details such as invoice numbe", "savings": "Saves approximately 60\u201370% processing time per invoice and significantly reduces operational costs associated with manua", "complete": 62}, {"id": "ACC-029", "name": "ACC-029", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Siva Prasad Polepally", "status": "Status not set", "domain": "Uncategorized", "maturity": "Unspecified", "hosting": "Not set", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "\u2022 Doctor Recommendation Agent \u2013 Converses naturally with patients, understands health concerns, and matches them with the right doctor by querying hospital specialty databases. It is language-agnostic, allowing patients ", "savings": "", "complete": 12}, {"id": "ACC-030", "name": "Qrypta.ai", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Madhu Sudhan Reddy", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "MVP / Pilot", "hosting": "Azure", "hasRepo": true, "hasDoc": true, "hasDemo": true, "security": "Not Reviewed", "desc": "Qrypta is the next generation of document governance, designed for the modern enterprise. By leveraging advanced artificial intelligence and machine learning, we provide organizations with unparalleled visibility into th", "savings": "", "complete": 88}, {"id": "ACC-031", "name": "Optiq", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Production-ready", "hosting": "Azure", "hasRepo": true, "hasDoc": true, "hasDemo": true, "security": "Not Reviewed", "desc": "AI-powered clinical documentation platform for ophthalmology clinics. Records doctor-patient consultations via audio, auto-generates SOAP notes, prescriptions, IOP readings, slit lamp findings, and billing codes using LL", "savings": "Documentation time reduced from ~4 hours/day to ~20 minutes/day per physician (~85% effort reduction). Estimated savings", "complete": 100}, {"id": "ACC-032", "name": "Clinical Trial Eligibility Scoring Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not Reviewed", "desc": "Evaluates patient medical records, clinical history, and diagnostic data against predefined clinical trial eligibility criteria to generate percentage-based eligibility scores. The agent enables faster, more accurate, an", "savings": "90% reduction in manual trial screening effort, significant reduction in recruitment timelines, and lower administrative", "complete": 62}, {"id": "ACC-033", "name": "Cancer Risk Analysis Assistant \u2013 AI Powered Detection of Skin Malignancies", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not Reviewed", "desc": "Intelligent Diagnostic Assistant for Oncology Risk Assessment and Clinical Guidance is an AI-powered healthcare solution that analyzes skin images along with patient medical information to detect potential signs of skin ", "savings": "Reduces clinician review time by 45%, allowing more focus on direct patient care.", "complete": 62}, {"id": "ACC-034", "name": "Doctor Recommendations & Appointment Scheduling Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": true, "hasDoc": false, "hasDemo": true, "security": "Not Reviewed", "desc": "Automates patient screening and scheduling workflows by intelligently managing appointments, cancellations, confirmations, rescheduling, and workload distribution across healthcare teams. The agent improves operational e", "savings": "Up to 40% reduction in appointment booking time, 50% reduction in missed appointments, and significant reduction in manu", "complete": 75}, {"id": "ACC-035", "name": "ICD\u2013CPT Claims Mapping & Analytics Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": true, "hasDoc": false, "hasDemo": true, "security": "Not Reviewed", "desc": "Automatically maps medical diagnoses, procedures, and treatments to standardized ICD and CPT codes with high accuracy, helping healthcare providers streamline medical billing and insurance claims processing. The agent re", "savings": "60\u201380% reduction in manual coding effort, faster claim processing, and significant reduction in rework and denied claims", "complete": 75}, {"id": "ACC-036", "name": "Doctalk \u2013 Electronic Health Record Generation Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Healthcare & Life Sciences", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not Reviewed", "desc": "Automates real-time clinical documentation by converting doctor\u2013patient conversations into accurate, FHIR-compliant SOAP notes, prescriptions, discharge summaries, and diagnostic recommendations. The agent reduces manual", "savings": "Up to 45% reduction in documentation effort, significant reduction in manual note-taking time, and faster clinical recor", "complete": 62}, {"id": "ACC-037", "name": "Financial Intelligence Workflow Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "BFSI", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not Reviewed", "desc": "An AI-powered orchestration agent that coordinates the end-to-end financial sales intelligence workflow by automating data ingestion, analysis, monitoring, and insight delivery to help sales teams identify opportunities ", "savings": "35% reduction in end-to-end workflow execution time and significant reduction in operational effort associated with data", "complete": 50}, {"id": "ACC-038", "name": "Smart Compliance Agent for Predictive Maintenance and Regulatory Reporting in Manufacturing Plants", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "BFSI", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered compliance and knowledge assistant that enables manufacturing and refinery teams to quickly access operational information, SOPs, maintenance records, security guidelines, and regulatory documentation while", "savings": "50\u201370% reduction in time spent searching operational information and compliance documents, along with substantial reduct", "complete": 38}, {"id": "ACC-039", "name": "Manufacturing Edge AI", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "BFSI", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered compliance and knowledge management agent that enables refinery and manufacturing teams to access operational information, maintenance records, SOPs, and regulatory documents through natural language querie", "savings": "50\u201370% reduction in information retrieval effort, significant reduction in compliance reporting preparation time, and lo", "complete": 38}, {"id": "ACC-040", "name": "Electricity Demand & Cost Prediction Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Energy & Utilities", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered energy forecasting agent that predicts future electricity demand and costs using historical consumption data, weather patterns, and contextual information, enabling organizations to optimize energy planning", "savings": "40% reduction in energy forecasting effort, significant savings through optimized electricity purchasing, reduced demand", "complete": 38}, {"id": "ACC-041", "name": "AI-Powered Invoice Processing Agent for Smarter Logistics", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Energy & Utilities", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered invoice processing agent that automatically extracts, structures, validates, and standardizes logistics invoice data, enabling faster processing, reduced errors, and seamless integration with enterprise log", "savings": "Up to 78% reduction in invoice processing effort, substantial reduction in manual data entry costs, and faster turnaroun", "complete": 38}, {"id": "ACC-042", "name": "Finance Data Extraction Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "BFSI", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered document intelligence agent that automatically extracts customer and loan information from complex financial documents, enabling faster loan processing, improved data accessibility, and deeper demographic a", "savings": "Improved loan dispatch process by 15% and significantly reduced manual document processing effort.", "complete": 38}, {"id": "ACC-043", "name": "Customer Churn & Premium Upgrade Analytics Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "BFSI", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered predictive analytics agent that identifies customers at risk of downgrading from premium banking segments while also detecting customers with high potential for premium segment upgrades, enabling proactive ", "savings": "Reduced premium customer churn by 14% and increased premium customer conversions by 3% through proactive identification ", "complete": 38}, {"id": "ACC-044", "name": "Quadrant BankBot \u2013 AI-Powered Banking Assistant", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "BFSI", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered conversational banking agent that enables customers to perform banking activities through web chat and WhatsApp using natural language, delivering faster service, reduced operational effort, and improved cu", "savings": "Reduced manual intervention by 22% and improved customer satisfaction by 15%, leading to lower operational costs and fas", "complete": 38}, {"id": "ACC-045", "name": "AI Smart Risk Analyzer Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "BFSI", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered insurance risk assessment agent that automatically analyzes policy and application documents, classifies risk levels, and provides explainable underwriting insights using OCR, RAG, and Large Language Models", "savings": "Significant reduction in manual underwriting effort and review time, enabling faster policy assessment and improved oper", "complete": 38}, {"id": "ACC-046", "name": "Intelligent Drug Investigation Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Renuka Tammali", "status": "Active", "domain": "Government", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Narcotics Investigation Assistant that helps law enforcement officers access accurate legal, procedural, and case-related information through an intelligent chatbot platform. The solution leverages indexed ", "savings": "Significant reduction in manual legal research and documentation effort, faster case preparation and investigation workf", "complete": 50}, {"id": "ACC-047", "name": "Democratising Voter Data Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Government", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-assisted election reporting system that enables election officials to generate reports, retrieve voter insights, and analyze election data using natural language queries. The solution automates data retrieval, repo", "savings": "Significant reduction in manual reporting effort and administrative overhead through automated data retrieval, validatio", "complete": 50}, {"id": "ACC-048", "name": "AI-Driven Voter Data Processing and Validation Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Government", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered voter data extraction and verification solution that automates the processing of voter registration forms using OCR, structured JSON output generation, automated validation, and Human-in-the-Loop verificati", "savings": "Processes thousands of voter registration forms within minutes instead of days, significantly reducing manual review and", "complete": 50}, {"id": "ACC-049", "name": "AI Lesson Plan Customization Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Leela Krishna Lalasa Bezwada", "status": "Active", "domain": "Education", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": true, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Lesson Plan Customizer that generates personalized lesson plans, assessments, worksheets, and instructional content using Azure OpenAI, semantic search, and intelligent content indexing. The solution automa", "savings": "Reduces lesson preparation effort by approximately 75% through automated retrieval, organization, analysis, and generati", "complete": 62}, {"id": "ACC-050", "name": "Citizen Guidance & Property Registration Bot", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Government", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Voice Bot Assistant that simplifies the property registration process by guiding users through category and subcategory selection using multilingual conversational support in Kannada and English. The soluti", "savings": "Significant reduction in citizen assistance effort and registration processing delays through automated guidance and sel", "complete": 38}, {"id": "ACC-051", "name": "AI-Powered Contest Management", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Saketh Malladi", "status": "Active", "domain": "Government", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered end-to-end contest management platform that automates design submission processing, content moderation, duplicate detection, finalist selection, voter validation, and ranked-choice voting for public design ", "savings": "Significant reduction in administrative workload through automated moderation, duplicate analysis, review workflows, and", "complete": 50}, {"id": "ACC-052", "name": "Intelligent Ticket Routing & Excel Analysis Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Security & IT", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Ticket Routing and Analysis Assistant that automates issue classification and team assignment from Excel-based support data using NLP and machine learning. The solution intelligently categorizes tickets by ", "savings": "Significant reduction in support administration effort and faster issue resolution through automated classification, ass", "complete": 38}, {"id": "ACC-053", "name": "Intelligent PII Detection & Redaction Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Security & IT", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": true, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered PII Detection and Masking System that automatically identifies and redacts sensitive information from unstructured and semi-structured data using NLP, LLMs, and rule-based intelligence. The solution support", "savings": "Reduces manual privacy review and redaction effort by approximately 70%, significantly lowering compliance costs and acc", "complete": 50}, {"id": "ACC-054", "name": "Retail Analytics & Demand Optimization Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Abhishek Vardhan Danagalla", "status": "Active", "domain": "Retail & CPG", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Retail Analytics Dashboard that integrates sales analysis, demand forecasting, and customer sentiment insights into a unified platform using AI and data analytics technologies. The solution transforms fragm", "savings": "Reduces manual reporting and analysis time by approximately 50%, enabling faster business decisions and improved operati", "complete": 50}, {"id": "ACC-055", "name": "Wine Name Standardization & Matching Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Retail & CPG", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": true, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Wine Name Matching System that intelligently maps abbreviated or inconsistent wine inputs to standardized wine records using AI-driven matching and validation techniques. The solution reduces manual catalog", "savings": "Reduces manual wine validation and catalog preparation effort by approximately 60%, enabling faster auction readiness an", "complete": 50}, {"id": "ACC-056", "name": "Intelligent Flyer Data Extraction Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Uma Manikanta Subramanya Swamy", "status": "Active", "domain": "Retail & CPG", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Flyer Data Extraction Platform that automates grocery flyer digitization using Vision AI and intelligent spatial mapping technologies. The solution extracts product names, prices, descriptions, and promotio", "savings": "Reduces manual flyer processing effort by more than 70%, significantly lowering catalog preparation costs and accelerati", "complete": 50}, {"id": "ACC-057", "name": "Smart Food Exhibition Inventory Forecasting Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "Shubham Kumar Magar", "status": "Active", "domain": "Retail & CPG", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Demand Forecasting Assistant that uses machine learning to predict optimal food inventory requirements for retail exhibitions by analyzing historical sales, customer behavior, seasonal trends, weather condi", "savings": "Significantly reduces manual inventory planning effort while lowering food waste costs and improving event profitability", "complete": 50}, {"id": "ACC-058", "name": "Worker Compliance Verification Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Construction", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Worker Compliance Verification System that monitors workforce qualifications and validates task assignments in real time to ensure regulatory compliance and operational safety. The solution intelligently an", "savings": "Eliminates significant manual compliance verification effort, reducing administrative overhead while improving workforce", "complete": 38}, {"id": "ACC-059", "name": "Intelligent Invoice Extraction & Mismatch Handling Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Construction", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": true, "security": "Not set", "desc": "An AI-powered Invoice Extraction and Mismatch Handling System that automates construction invoice processing using OCR, Azure Document Intelligence, and Azure OpenAI technologies. The solution extracts, cleanses, and val", "savings": "Reduces invoice processing effort by approximately 80%, transforming tasks that previously required hours into minutes w", "complete": 38}, {"id": "ACC-060", "name": "BPCL's AI-Powered Chatbot", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Manufacturing", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered refinery operations assistant that enables employees to access refinery operational knowledge through natural language conversations. Built using the Quadrant Bot Framework, the solution retrieves and inter", "savings": "Significantly reduces time spent searching and analyzing refinery documents, enabling employees to obtain operational in", "complete": 38}, {"id": "ACC-061", "name": "AI Safety Compliance Agent", "type": "AI Agent", "bu": "Vamshi BU", "owner": "", "status": "Active", "domain": "Manufacturing", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not set", "desc": "An AI-powered workplace safety monitoring solution that uses computer vision and real-time video analytics to detect personal protective equipment (PPE) compliance across manufacturing facilities. The platform identifies", "savings": "Reduces manual safety monitoring efforts, lowers accident-related costs, minimizes production downtime, and decreases co", "complete": 38}, {"id": "ACC-062", "name": "QBid", "type": "Q-Suite Product", "bu": "Vamshi BU", "owner": "Farha Nousheen", "status": "In Development", "domain": "Enterprise Productivity", "maturity": "Unspecified", "hosting": "Azure", "hasRepo": false, "hasDoc": false, "hasDemo": false, "security": "Not Reviewed", "desc": "QBid is an AI-powered tender/RFP automation platform that helps teams quickly analyze tender documents, extract requirements, generate questions, specifications, solution design, effort estimation, and response documents", "savings": "Reduce manual effort by 60\u201380%, saving several days of proposal analysis and estimation work per project while lowering ", "complete": 62}];
+let AGENTS = FALLBACK_DATA.slice();
+document.getElementById('today').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+document.getElementById('totalCount').textContent = AGENTS.length;
+
+const count = (arr,key,val) => arr.filter(a=>a[key]===val).length;
+const pct = (n,d)=> d? Math.round(100*n/d):0;
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// palette
+const teal=getComputedStyle(document.documentElement).getPropertyValue('--teal');
+const amber=getComputedStyle(document.documentElement).getPropertyValue('--amber');
+const violet=getComputedStyle(document.documentElement).getPropertyValue('--violet');
+const rose=getComputedStyle(document.documentElement).getPropertyValue('--rose');
+const mist=getComputedStyle(document.documentElement).getPropertyValue('--mist');
+
+// grouped bar helper
+function groupBars(el, key, colorFn, limit){
+  const m={}; AGENTS.forEach(a=>{m[a[key]]=(m[a[key]]||0)+1;});
+  let entries=Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  if(limit) entries=entries.slice(0,limit);
+  const max=Math.max(1,...entries.map(e=>e[1]));
+  document.getElementById(el).innerHTML = entries.map(([k,v])=>`
+    <div class="bar-row">
+      <div class="lab"><span>${esc(k)}</span><b>${v}</b></div>
+      <div class="track"><div class="fill" style="width:${pct(v,max)}%;background:${colorFn(k)}"></div></div>
+    </div>`).join('');
+}
+
+// KPIs + composition + governance flags
+function buildStats(){
+  document.getElementById('totalCount').textContent = AGENTS.length;
+  const active = AGENTS.filter(a=>a.status==='Active').length;
+  const launchReady = AGENTS.filter(a=>a.maturity==='Production-ready'||a.maturity==='Beta').length;
+  const secReviewed = AGENTS.filter(a=>a.security==='Reviewed').length;
+  const withRepo = AGENTS.filter(a=>a.hasRepo).length;
+  const avgComplete = AGENTS.length? Math.round(AGENTS.reduce((s,a)=>s+a.complete,0)/AGENTS.length):0;
+
+  const kpis = [
+    {n:AGENTS.length, l:'Total Assets', sub:'agents + accelerators + products', cls:'accent-ink', drill:'all'},
+    {n:active, l:'Marked Active', sub:pct(active,AGENTS.length)+'% of portfolio', cls:'accent-teal', drill:'active'},
+    {n:launchReady, l:'Launch-Ready', sub:'production or beta maturity', cls:'accent-teal', drill:'launch'},
+    {n:secReviewed, l:'Security Reviewed', sub:secReviewed===0?'none recorded yet':pct(secReviewed,AGENTS.length)+'% reviewed', cls:'accent-rose', drill:'security'},
+    {n:avgComplete, suffix:'%', l:'Avg Data Completeness', sub:'across governance fields', cls:'accent-amber', drill:'complete'},
+  ];
+  document.getElementById('kpis').innerHTML = kpis.map(k=>
+    `<div class="kpi ${k.cls} drill" data-drill="${k.drill}" role="button" tabindex="0" aria-label="${k.l} — view details"><div class="n">${k.n}${k.suffix?'<small>'+k.suffix+'</small>':''}</div><div class="l">${k.l}</div><div class="sub">${k.sub}</div><span class="drill-hint">View &rarr;</span></div>`
+  ).join('');
+
+  groupBars('buBars','bu', k=> k==='AI CoE'?teal : k==='Vamshi BU'?violet : mist);
+  groupBars('domBars','domain', k=> k==='Uncategorized'?mist:teal, 8);
+  groupBars('typeBars','type', k=> k==='AI Agent'?teal : k==='Q-Suite Product'?violet : amber);
+  groupBars('matBars','maturity', k=> k==='Unspecified'?mist : (k==='Production-ready'||k==='Beta')?teal : amber);
+
+  const noOwner = AGENTS.filter(a=>!a.owner).length;
+  const noStatus = AGENTS.filter(a=>a.status==='Status not set').length;
+  const noMaturity = AGENTS.filter(a=>a.maturity==='Unspecified').length;
+  const noSec = AGENTS.filter(a=>a.security==='Not set').length;
+  const noRepo = AGENTS.length - withRepo;
+  const flags = [
+    {n:noMaturity, cls:'rose', t:'assets have <b>no maturity level</b> recorded &mdash; leadership can\'t tell demos from launch-ready work'},
+    {n:noSec+AGENTS.filter(a=>a.security==='Not Reviewed').length, cls:'rose', t:'assets are <b>not security-reviewed</b> (or status unrecorded) &mdash; a compliance gap before any client exposure'},
+    {n:noRepo, cls:'amber', t:'assets have <b>no storage/repo link</b> &mdash; the artifact can\'t be found or reused'},
+    {n:noOwner, cls:'amber', t:'assets have <b>no named owner</b> &mdash; accountability gap for follow-up'},
+    {n:noStatus, cls:'amber', t:'assets have <b>no lifecycle status</b> set'},
+  ];
+  document.getElementById('flags').innerHTML = flags.map(f=>
+    `<div class="flag"><div class="big ${f.cls}">${f.n}</div><div class="txt">${f.t}</div></div>`
+  ).join('');
+}
+
+// Table
+let state={f:'all', q:'', sort:'complete', dir:1, col:{}};
+function typeTag(t){
+  if(t==='AI Agent')return '<span class="tag t-agent">Agent</span>';
+  if(t==='Q-Suite Product')return '<span class="tag t-q">Q-Suite</span>';
+  return '<span class="tag t-acc">Accel</span>';
+}
+function statusDot(s){
+  const c = s==='Active'?'d-active':s==='In Development'?'d-dev':'d-none';
+  return `<span class="dot ${c}"></span>${esc(s)}`;
+}
+function dim(v, placeholder){
+  return (!v || v===placeholder) ? `<span style="color:var(--mist)">${esc(placeholder||'&mdash;')}</span>` : esc(v);
+}
+function secBadge(s){
+  if(s==='Reviewed') return '<span class="sec sec-ok">Reviewed</span>';
+  if(s==='Not Reviewed') return '<span class="sec sec-warn">Not reviewed</span>';
+  return '<span class="sec sec-none">Not set</span>';
+}
+function render(){
+  let rows = AGENTS.slice();
+  if(state.f==='incomplete') rows=rows.filter(a=>a.complete<50);
+  else if(state.f!=='all') rows=rows.filter(a=>a.type===state.f);
+  // per-column header filters
+  for(const col in state.col){
+    const val=state.col[col]; if(!val) continue;
+    if(col==='hasRepo') rows=rows.filter(a=>(a.hasRepo?'yes':'no')===val);
+    else rows=rows.filter(a=>String(a[col]==null?'':a[col])===val);
+  }
+  if(state.q){const q=state.q.toLowerCase();
+    rows=rows.filter(a=>((a.name||'')+(a.owner||'')+(a.domain||'')+(a.bu||'')+(a.id||'')).toLowerCase().includes(q));}
+  rows.sort((a,b)=>{
+    let x=a[state.sort],y=b[state.sort];
+    if(typeof x==='boolean'){x=x?1:0;y=y?1:0;}
+    if(typeof x==='string')return state.dir*x.localeCompare(y);
+    return state.dir*(x-y);
+  });
+  document.getElementById('tbody').innerHTML = rows.map(a=>`
+    <tr>
+      <td><div class="aname">${esc(a.name)}</div><div class="aid">${esc(a.id)}</div></td>
+      <td>${typeTag(a.type)}</td>
+      <td class="hide-sm">${esc(a.bu)}</td>
+      <td class="hide-sm">${a.owner?esc(a.owner):'<span class="miss">&mdash;</span>'}</td>
+      <td class="hide-sm">${a.domain==='Uncategorized'?'<span style="color:var(--mist)">Uncategorized</span>':esc(a.domain)}</td>
+      <td style="white-space:nowrap">${dim(a.maturity,'Unspecified')}</td>
+      <td style="white-space:nowrap">${statusDot(a.status)}</td>
+      <td class="hide-sm">${secBadge(a.security)}</td>
+      <td class="hide-sm">${dim(a.hosting,'Not set')}</td>
+      <td class="hide-sm">${a.hasRepo?'<span class="ok">&check;</span>':'<span class="miss">&times;</span>'}</td>
+      <td><div class="meter"><div class="track2"><div class="f2" style="width:${a.complete}%;background:${a.complete<40?rose:a.complete<70?amber:teal}"></div></div><span>${a.complete}%</span></div></td>
+    </tr>`).join('');
+}
+document.getElementById('search').addEventListener('input', e=>{state.q=e.target.value; render();});
+document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{
+  document.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+  c.classList.add('on'); state.f=c.dataset.f; render();
+}));
+document.querySelectorAll('thead th').forEach(th=>th.addEventListener('click',()=>{
+  const s=th.dataset.s; if(!s)return;
+  if(state.sort===s)state.dir*=-1; else{state.sort=s; state.dir=1;}
+  render();
+}));
+
+const FILTER_LABELS = {
+  type:'All types', bu:'All BUs', owner:'All owners', domain:'All domains',
+  maturity:'All maturity', status:'All status', security:'All security',
+  hosting:'All hosting', hasRepo:'Repo: any'
+};
+function buildFilters(){
+  document.querySelectorAll('.filters select').forEach(sel=>{
+    const col=sel.dataset.col, cur=state.col[col]||'';
+    let opts;
+    if(col==='hasRepo'){
+      opts=[{v:'yes',t:'Has repo'},{v:'no',t:'No repo'}];
+    } else {
+      opts=[...new Set(AGENTS.map(a=>String(a[col]==null?'':a[col])).filter(v=>v!==''))]
+        .sort((a,b)=>a.localeCompare(b)).map(v=>({v,t:v}));
+    }
+    sel.innerHTML = `<option value="">${FILTER_LABELS[col]}</option>` +
+      opts.map(o=>`<option value="${esc(o.v)}"${cur===o.v?' selected':''}>${esc(o.t)}</option>`).join('');
+    sel.classList.toggle('active', !!cur);
+  });
+}
+document.querySelectorAll('.filters select').forEach(sel=>{
+  sel.addEventListener('click', e=>e.stopPropagation());
+  sel.addEventListener('change', e=>{
+    e.stopPropagation();
+    state.col[sel.dataset.col]=sel.value;
+    sel.classList.toggle('active', !!sel.value);
+    render();
+  });
+});
+
+function masterRender(){ buildStats(); buildFilters(); render(); }
+
+/* =====================================================================
+   KPI DRILL-DOWN
+   Clicking a KPI card opens a detail drawer listing the matching assets.
+   ===================================================================== */
+const DRILLS = {
+  all:      {eyebrow:'Portfolio', title:'All Assets',        sub:'Every agent, accelerator and product under management',
+             filter:()=>true, sort:(a,b)=>a.id.localeCompare(b.id)},
+  active:   {eyebrow:'Lifecycle', title:'Marked Active',      sub:'Assets currently flagged as Active in the register',
+             filter:a=>a.status==='Active', sort:(a,b)=>b.complete-a.complete},
+  launch:   {eyebrow:'Maturity',  title:'Launch-Ready',       sub:'Production-ready or Beta maturity — closest to client use',
+             filter:a=>a.maturity==='Production-ready'||a.maturity==='Beta', sort:(a,b)=>b.complete-a.complete},
+  security: {eyebrow:'Governance',title:'Security Reviewed',  sub:'Assets that have completed a security review',
+             filter:a=>a.security==='Reviewed', sort:(a,b)=>b.complete-a.complete,
+             empty:'No assets have a recorded security review yet. This is the top compliance gap to close before any client exposure.'},
+  complete: {eyebrow:'Data Quality', title:'Data Completeness', sub:'Ranked lowest-first — the laggards needing data most',
+             filter:()=>true, sort:(a,b)=>a.complete-b.complete}
+};
+function drillRowsHTML(rows){
+  if(!rows.length) return '';
+  return `<table>
+    <thead><tr>
+      <th>Asset</th><th>Type</th><th class="hide-sm">BU</th><th class="hide-sm">Owner</th>
+      <th class="hide-sm">Domain</th><th>Maturity</th><th>Status</th><th>Data</th>
+    </tr></thead>
+    <tbody>${rows.map(a=>`
+      <tr>
+        <td><div class="aname">${esc(a.name)}</div><div class="aid">${esc(a.id)}</div></td>
+        <td>${typeTag(a.type)}</td>
+        <td class="hide-sm">${esc(a.bu)}</td>
+        <td class="hide-sm">${a.owner?esc(a.owner):'<span class="miss">&mdash;</span>'}</td>
+        <td class="hide-sm">${a.domain==='Uncategorized'?'<span style="color:var(--mist)">Uncategorized</span>':esc(a.domain)}</td>
+        <td style="white-space:nowrap">${a.maturity==='Unspecified'?'<span style="color:var(--mist)">Unspecified</span>':esc(a.maturity)}</td>
+        <td style="white-space:nowrap">${statusDot(a.status)}</td>
+        <td><div class="meter"><div class="track2"><div class="f2" style="width:${a.complete}%;background:${a.complete<40?rose:a.complete<70?amber:teal}"></div></div><span>${a.complete}%</span></div></td>
+      </tr>`).join('')}</tbody>
+  </table>`;
+}
+function openDrill(key){
+  const d = DRILLS[key]; if(!d) return;
+  const rows = AGENTS.filter(d.filter).slice().sort(d.sort);
+  document.getElementById('drawerEyebrow').textContent = d.eyebrow;
+  document.getElementById('drawerTitle').textContent = d.title;
+  document.getElementById('drawerSub').textContent = d.sub;
+  document.getElementById('drawerCount').textContent = rows.length;
+  document.getElementById('drawerBody').innerHTML =
+    rows.length ? drillRowsHTML(rows) : `<div class="drawer-empty">${d.empty||'No matching assets.'}</div>`;
+  const back = document.getElementById('drawerBack');
+  back.classList.add('open');
+  document.getElementById('drawerClose').focus();
+}
+function closeDrill(){ document.getElementById('drawerBack').classList.remove('open'); }
+
+document.getElementById('kpis').addEventListener('click', e=>{
+  const card = e.target.closest('.kpi[data-drill]'); if(card) openDrill(card.dataset.drill);
+});
+document.getElementById('kpis').addEventListener('keydown', e=>{
+  if(e.key!=='Enter' && e.key!==' ') return;
+  const card = e.target.closest('.kpi[data-drill]'); if(card){ e.preventDefault(); openDrill(card.dataset.drill); }
+});
+document.getElementById('drawerClose').addEventListener('click', closeDrill);
+document.getElementById('drawerBack').addEventListener('click', e=>{ if(e.target.id==='drawerBack') closeDrill(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeDrill(); });
+
+/* =====================================================================
+   LIVE EXCEL CONNECTION
+   Reads the "Accelerator Inventory" sheet and maps it to the dashboard
+   model, refreshing automatically when the workbook changes.
+   ===================================================================== */
+// Defaults — overridden at startup by values in the ".env" file (if reachable).
+let SHAREPOINT_URL = '';
+let SHEET_NAME = 'Accelerator Inventory';
+let AAD_CLIENT_ID = '';
+let AAD_TENANT_ID = 'common';
+let lastSig=null, pollTimer=null;
+
+// Reads a KEY=VALUE ".env" file served next to this page and applies
+// SHAREPOINT_URL / SHEET_NAME / AAD_CLIENT_ID / AAD_TENANT_ID. Silently keeps
+// defaults if it can't be read (e.g. opened via file:// instead of http server).
+async function loadEnv(){
+  try{
+    const res = await fetch('.env', {cache:'no-store'});
+    if(!res.ok) return;
+    const text = await res.text();
+    text.split(/\r?\n/).forEach(line=>{
+      const t = line.trim();
+      if(!t || t.startsWith('#')) return;
+      const eq = t.indexOf('=');
+      if(eq < 1) return;
+      const key = t.slice(0, eq).trim();
+      const val = t.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+      if(key === 'SHAREPOINT_URL' && val) SHAREPOINT_URL = val;
+      else if(key === 'SHEET_NAME' && val) SHEET_NAME = val;
+      else if(key === 'AAD_CLIENT_ID' && val) AAD_CLIENT_ID = val;
+      else if(key === 'AAD_TENANT_ID' && val) AAD_TENANT_ID = val;
+    });
+  }catch(e){ /* file:// or offline — keep defaults */ }
+}
+
+// Turn a SharePoint/OneDrive "share" URL into a direct file-download URL.
+function toDownloadUrl(u){
+  if(!u) return u;
+  try{
+    const url = new URL(u);
+    if(/sharepoint\.com$/i.test(url.hostname) || /1drv\.ms$/i.test(url.hostname) || /onedrive\.live\.com$/i.test(url.hostname)){
+      url.searchParams.set('download', '1');
+    }
+    return url.toString();
+  }catch(e){ return u; }
+}
+
+const S = v => (v==null?'':String(v)).trim();
+// half-to-even rounding, matching how the embedded snapshot was generated
+function roundHalfEven(x){
+  const f=Math.floor(x), d=x-f;
+  if(Math.abs(d-0.5)<1e-9) return (f%2===0)?f:f+1;
+  return Math.round(x);
+}
+function normType(v){ const s=S(v).toLowerCase().replace(/\s+/g,' ');
+  if(!s) return 'Unspecified';
+  if(s.includes('q-suite')) return 'Q-Suite Product';
+  if(s.includes('agent')) return 'AI Agent';
+  if(s.includes('accelerator')||s.includes('idp')||s.includes('automation')) return 'Accelerator';
+  return S(v); }
+function normBu(v){ return S(v) || 'Unassigned'; }
+function normStatus(v){ const s=S(v); if(!s) return 'Status not set';
+  if(s.toLowerCase().startsWith('active')) return 'Active'; return s; }
+function normHost(v){ const s=S(v).toLowerCase();
+  if(!s) return 'Not set';
+  if(s.includes('azure')) return 'Azure';
+  if(s.includes('aws')) return 'AWS';
+  if(s.includes('gcp')||s.includes('google')) return 'GCP';
+  return S(v); }
+function normMat(v){ const s=S(v).toLowerCase();
+  if(!s) return 'Unspecified';
+  if(s.includes('production')) return 'Production-ready';
+  if(s.includes('beta')) return 'Beta';
+  if(s.includes('mvp')||s.includes('pilot')) return 'MVP / Pilot';
+  if(s.includes('prototype')||s.includes('demo')) return 'Prototype / Demo';
+  if(s.includes('experimental')) return 'Experimental';
+  return S(v); }
+function normSec(v){ const s=S(v).toLowerCase();
+  if(!s) return 'Not set';
+  if(s.includes('not')) return 'Not Reviewed';
+  if(s.includes('review')||s.includes('approved')||s.includes('complete')||s.includes('pass')) return 'Reviewed';
+  return 'Not Reviewed'; }
+function normDomain(v){ const raw=S(v); if(!raw) return 'Uncategorized';
+  const s=raw.toLowerCase();
+  if(/health|clinic|oncolog|dermat|medtech|ophthal|patient|ehr|soap|pharma/.test(s)) return 'Healthcare & Life Sciences';
+  if(/bfsi|bank|financ|credit|underwrit|insur|payable|lending|payer|payment/.test(s)) return 'BFSI';
+  if(/government|voter|election|public|citizen|narcotic|law enforce/.test(s)) return 'Government';
+  if(/retail|cpg|grocery|wine|food|exhibition|catalog/.test(s)) return 'Retail & CPG';
+  if(/energy|utilit|electric|logistic/.test(s)) return 'Energy & Utilities';
+  if(/construction/.test(s)) return 'Construction';
+  if(/manufactur|refinery|\bplant\b|ppe|safety/.test(s)) return 'Manufacturing';
+  if(/education|lesson|teach|student|school/.test(s)) return 'Education';
+  if(/sales|go-to-market|gtm|business development/.test(s)) return 'Sales / GTM';
+  if(/security|enterprise it|internal|data privacy|ticket|\bpii\b/.test(s)) return 'Security & IT';
+  if(/productivity|knowledge|research|project|estimation|proposal|automation|document intelligence|modernization|generative|professional services|legal/.test(s)) return 'Enterprise Productivity';
+  return raw; }
+
+// Column indexes on the "Accelerator Inventory" sheet (0-based)
+function rowToAsset(row){
+  const g = i => row[i];
+  const id = S(g(0)); if(!id) return null;
+  const owner = S(g(5));
+  const rawStatus = S(g(10));
+  const storage = S(g(12));
+  const repoType = S(g(13));
+  const docLink = S(g(15));
+  const demoLink = S(g(16));
+  const rawDomain = S(g(21));
+  const savings = S(g(30));
+  const rawMat = S(g(33));
+  const rawSec = S(g(38));
+  const hasRepo = !!(repoType || storage);
+  // completeness across 8 leadership-critical fields (raw presence)
+  const present = [ owner, rawStatus, rawMat, (storage||repoType), rawDomain, rawSec, savings, docLink ]
+    .filter(Boolean).length;
+  const complete = roundHalfEven(present/8*100);
+  const name = S(g(1)) || id;
+  return {
+    id, name, type: normType(g(2)), bu: normBu(g(4)), owner,
+    status: normStatus(g(10)), domain: normDomain(g(21)), maturity: normMat(g(33)),
+    hosting: normHost(g(28)), hasRepo, hasDoc: !!docLink, hasDemo: !!demoLink,
+    security: normSec(g(38)), desc: S(g(3)), savings, complete
+  };
+}
+function parseWorkbook(buf){
+  if(typeof XLSX==='undefined') throw new Error('Spreadsheet library not loaded (no internet?).');
+  const wb = XLSX.read(buf, {type:'array'});
+  const ws = wb.Sheets[SHEET_NAME] || wb.Sheets[wb.SheetNames[0]];
+  const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:null, blankrows:false});
+  const out=[];
+  for(let r=2;r<aoa.length;r++){ const a=rowToAsset(aoa[r]||[]); if(a) out.push(a); }
+  return out;
+}
+
+function setStatus(text, cls){
+  document.getElementById('dsText').textContent = text;
+  document.getElementById('dsDot').className = 'ds-dot' + (cls?(' '+cls):'');
+}
+function markSync(){
+  document.getElementById('dsTime').textContent = 'Last sync ' + new Date().toLocaleTimeString();
+}
+function applyData(buf){
+  const data = parseWorkbook(buf);
+  if(data.length){ AGENTS = data; masterRender(); markSync(); return true; }
+  return false;
+}
+
+// Fetch the workbook straight from the SHAREPOINT_URL in .env
+async function tryFetch(){
+  if(!SHAREPOINT_URL) return false;
+  try{
+    const res = await fetch(toDownloadUrl(SHAREPOINT_URL), {cache:'no-store'});
+    if(!res.ok) return false;
+    const buf = await res.arrayBuffer();
+    if(applyData(buf)){
+      lastSig = res.headers.get('Last-Modified') || String(buf.byteLength);
+      setStatus('Live \u00b7 SharePoint', 'ok');
+      startHttpPoll();
+      return true;
+    }
+  }catch(e){ /* auth / CORS / offline — fall through */ }
+  return false;
+}
+function startHttpPoll(){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async ()=>{
+    try{
+      const res = await fetch(toDownloadUrl(SHAREPOINT_URL), {cache:'no-store'});
+      if(!res.ok) return;
+      const buf = await res.arrayBuffer();
+      const sig = res.headers.get('Last-Modified') || String(buf.byteLength);
+      if(sig!==lastSig){ lastSig=sig; applyData(buf); }
+    }catch(e){}
+  }, 5000);
+}
+
+// ---- Microsoft sign-in (delegated, per-user SharePoint access via Graph) ----
+let msalApp = null, graphToken = null;
+const GRAPH_SCOPES = ['Files.Read.All','Sites.Read.All'];
+
+// Encode a SharePoint/OneDrive sharing URL into a Graph "share ID".
+function encodeShareUrl(u){
+  const b64 = btoa(unescape(encodeURIComponent(u)));
+  return 'u!' + b64.replace(/=+$/,'').replace(/\//g,'_').replace(/\+/g,'-');
+}
+function initMsal(){
+  if(msalApp) return msalApp;
+  if(typeof msal==='undefined' || !AAD_CLIENT_ID) return null;
+  msalApp = new msal.PublicClientApplication({
+    auth:{
+      clientId: AAD_CLIENT_ID,
+      authority: 'https://login.microsoftonline.com/' + (AAD_TENANT_ID||'common'),
+      redirectUri: window.location.origin + window.location.pathname
+    },
+    cache:{ cacheLocation:'sessionStorage' }
+  });
+  return msalApp;
+}
+async function getGraphToken(interactive){
+  const app = initMsal();
+  if(!app) throw new Error('AAD_CLIENT_ID missing in .env');
+  let account = app.getActiveAccount() || app.getAllAccounts()[0];
+  if(!account && interactive){
+    const r = await app.loginPopup({ scopes: GRAPH_SCOPES });
+    account = r.account; app.setActiveAccount(account);
+  }
+  if(!account) throw new Error('not signed in');
+  try{
+    const r = await app.acquireTokenSilent({ scopes: GRAPH_SCOPES, account });
+    return r.accessToken;
+  }catch(e){
+    if(!interactive) throw e;
+    const r = await app.acquireTokenPopup({ scopes: GRAPH_SCOPES, account });
+    return r.accessToken;
+  }
+}
+async function graphMeta(token){
+  const id = encodeShareUrl(SHAREPOINT_URL);
+  const res = await fetch('https://graph.microsoft.com/v1.0/shares/'+id+'/driveItem?select=eTag,size,lastModifiedDateTime',
+    { headers:{ Authorization:'Bearer '+token }, cache:'no-store' });
+  if(!res.ok) throw new Error('Graph '+res.status);
+  return res.json();
+}
+async function graphContent(token){
+  const id = encodeShareUrl(SHAREPOINT_URL);
+  const res = await fetch('https://graph.microsoft.com/v1.0/shares/'+id+'/driveItem/content',
+    { headers:{ Authorization:'Bearer '+token }, cache:'no-store' });
+  if(!res.ok) throw new Error('Graph '+res.status);
+  return res.arrayBuffer();
+}
+async function signInAndLoad(){
+  try{
+    setStatus('Signing in\u2026', 'idle');
+    graphToken = await getGraphToken(true);
+    const meta = await graphMeta(graphToken);
+    const buf = await graphContent(graphToken);
+    if(applyData(buf)){
+      lastSig = meta.eTag || String(buf.byteLength);
+      const acct = msalApp.getActiveAccount();
+      setStatus('Live \u00b7 SharePoint \u00b7 '+((acct&&acct.username)||'signed in'), 'ok');
+      const btn = document.getElementById('dsSignin'); if(btn) btn.style.display='none';
+      startGraphPoll();
+      return;
+    }
+    setStatus('Signed in, but the workbook could not be read \u2014 check SHEET_NAME', 'err');
+  }catch(e){
+    setStatus('Sign-in failed: '+((e&&e.message)||e), 'err');
+  }
+}
+function startGraphPoll(){
+  clearInterval(pollTimer);
+  pollTimer = setInterval(async ()=>{
+    try{
+      graphToken = await getGraphToken(false);
+      const meta = await graphMeta(graphToken);
+      const sig = meta.eTag || '';
+      if(sig && sig!==lastSig){
+        const buf = await graphContent(graphToken);
+        if(applyData(buf)){ lastSig=sig; }
+      }
+    }catch(e){}
+  }, 30000);
+}
+function showSignIn(msg){
+  setStatus(msg, 'idle');
+  const btn = document.getElementById('dsSignin');
+  if(btn && AAD_CLIENT_ID){ btn.style.display=''; }
+}
+
+function initDataSource(){
+  const btn = document.getElementById('dsSignin');
+  if(btn) btn.addEventListener('click', signInAndLoad);
+
+  setStatus('Embedded snapshot \u2014 connecting to SharePoint\u2026', 'idle');
+  if(!SHAREPOINT_URL){
+    setStatus('Embedded snapshot \u2014 set SHAREPOINT_URL in .env', 'idle');
+    return;
+  }
+  // Try the anonymous link first; if it's blocked, offer per-user sign-in.
+  tryFetch().then(ok=>{
+    if(ok) return;
+    if(AAD_CLIENT_ID){
+      // If already signed in this session, load silently; otherwise show the button.
+      getGraphToken(false)
+        .then(()=> signInAndLoad())
+        .catch(()=> showSignIn('Embedded snapshot \u2014 sign in with your account to load the SharePoint workbook'));
+    }else{
+      setStatus('Embedded snapshot \u2014 set AAD_CLIENT_ID in .env to enable sign-in', 'err');
+    }
+  });
+}
+
+masterRender();
+loadEnv().then(initDataSource);
+</script>
+</body>
+</html>
