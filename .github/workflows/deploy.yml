@@ -13,11 +13,10 @@ name: Refresh and deploy dashboard to GitHub Pages
 # The Entra app needs the APPLICATION Graph permission "Sites.Read.All"
 # (admin consent granted). Set repo Settings > Pages > Source to "GitHub Actions".
 
+# DISABLED: the dashboard is now hosted on Azure App Service (Easy Auth + live
+# per-user Microsoft Graph read), not GitHub Pages. This workflow no longer runs
+# automatically. It is kept for reference and can only be triggered manually.
 on:
-  push:
-    branches: [main]
-  schedule:
-    - cron: '0 */6 * * *'   # refresh the snapshot every 6 hours
   workflow_dispatch:
 
 permissions:
