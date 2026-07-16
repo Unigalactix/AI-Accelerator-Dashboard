@@ -1,12 +1,23 @@
-name: Deploy dashboard to GitHub Pages
+name: Refresh and deploy dashboard to GitHub Pages
 
-# Builds the .env file from repository secrets at deploy time, then publishes
-# the static site to GitHub Pages. Set repo Settings > Pages > Source to
-# "GitHub Actions" for this to take effect.
+# Server-side, this workflow authenticates to Microsoft Graph (app-only), downloads
+# the SharePoint workbook, and publishes it next to the site as "portfolio.xlsx".
+# The dashboard then reads that same-origin file in the browser — no sign-in, no CORS.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   SHAREPOINT_URL     the sharing link to the workbook
+#   SHEET_NAME         the sheet/tab to read (e.g. "Accelerator Inventory")
+#   AAD_TENANT_ID      directory (tenant) ID of the app registration
+#   AAD_CLIENT_ID      application (client) ID of the app registration
+#   AAD_CLIENT_SECRET  a client secret for that app
+# The Entra app needs the APPLICATION Graph permission "Sites.Read.All"
+# (admin consent granted). Set repo Settings > Pages > Source to "GitHub Actions".
 
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 */6 * * *'   # refresh the snapshot every 6 hours
   workflow_dispatch:
 
 permissions:
@@ -28,14 +39,63 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Generate .env from secrets
+      - name: Write runtime config (.env)
         run: |
           {
-            echo "SHAREPOINT_URL=${{ secrets.SHAREPOINT_URL }}"
             echo "SHEET_NAME=${{ secrets.SHEET_NAME }}"
-            echo "AAD_CLIENT_ID=${{ secrets.AAD_CLIENT_ID }}"
-            echo "AAD_TENANT_ID=${{ secrets.AAD_TENANT_ID }}"
+            echo "SNAPSHOT_FILE=portfolio.xlsx"
           } > .env
+
+      - name: Download workbook from SharePoint (app-only Graph)
+        env:
+          TENANT: ${{ secrets.AAD_TENANT_ID }}
+          CLIENT_ID: ${{ secrets.AAD_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.AAD_CLIENT_SECRET }}
+          SHARE_URL: ${{ secrets.SHAREPOINT_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${TENANT}" ] || [ -z "${CLIENT_ID}" ] || [ -z "${CLIENT_SECRET}" ] || [ -z "${SHARE_URL}" ]; then
+            echo "::error::Missing one of AAD_TENANT_ID / AAD_CLIENT_ID / AAD_CLIENT_SECRET / SHAREPOINT_URL secrets."
+            exit 1
+          fi
+
+          echo "Requesting app-only Graph token..."
+          TOKEN=$(curl -sS -X POST \
+            "https://login.microsoftonline.com/${TENANT}/oauth2/v2.0/token" \
+            -d "client_id=${CLIENT_ID}" \
+            -d "client_secret=${CLIENT_SECRET}" \
+            -d "scope=https://graph.microsoft.com/.default" \
+            -d "grant_type=client_credentials" | jq -r '.access_token // empty')
+
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::Failed to obtain an access token. Check tenant/client id/secret and admin consent."
+            exit 1
+          fi
+
+          # Encode the sharing URL into a Graph share id: "u!" + unpadded base64url.
+          B64=$(printf '%s' "${SHARE_URL}" | base64 -w0 | tr '+/' '-_' | tr -d '=')
+          SHARE_ID="u!${B64}"
+
+          echo "Downloading workbook via /shares/${SHARE_ID}/driveItem/content ..."
+          HTTP=$(curl -sS -L -w '%{http_code}' -o portfolio.xlsx \
+            -H "Authorization: Bearer ${TOKEN}" \
+            "https://graph.microsoft.com/v1.0/shares/${SHARE_ID}/driveItem/content")
+
+          if [ "${HTTP}" != "200" ]; then
+            echo "::error::Graph download returned HTTP ${HTTP}."
+            head -c 800 portfolio.xlsx || true
+            exit 1
+          fi
+
+          # Sanity check: a real .xlsx is a ZIP and starts with the bytes "PK".
+          if [ "$(head -c 2 portfolio.xlsx)" != "PK" ]; then
+            echo "::error::Downloaded file is not a valid .xlsx (missing PK header)."
+            head -c 800 portfolio.xlsx || true
+            exit 1
+          fi
+
+          echo "Downloaded $(wc -c < portfolio.xlsx) bytes."
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

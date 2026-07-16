@@ -2,8 +2,12 @@
 
 A single-file leadership dashboard for the AI Accelerator / Agent portfolio. It reads an Excel
 workbook (the Asset Register) and renders live KPIs, composition charts, governance flags, and a
-filterable/sortable asset table. No build step, no framework — just one HTML file plus a small
-`.env` config.
+filterable/sortable asset table. No build step, no framework — just one HTML file.
+
+The dashboard is designed to be **published to GitHub Pages**, where a scheduled GitHub Action pulls
+the latest workbook from SharePoint and publishes it next to the site. It also runs fully offline
+from an **embedded snapshot** baked into the page, so it always shows data even before the workbook
+is wired up.
 
 ---
 
@@ -11,28 +15,66 @@ filterable/sortable asset table. No build step, no framework — just one HTML f
 
 | File | Purpose |
 |------|---------|
-| `AI_Portfolio_Dashboard.html` | The entire dashboard (HTML + CSS + JS in one file). |
-| `.env` | Config you edit — which workbook file and sheet to read. |
-| `AI_Accelerator_Agent_Inventory_Template.xlsx` | The Excel data source (local / OneDrive-synced copy). |
+| `index.html` | The entire dashboard (HTML + CSS + JS in one file), including an embedded fallback snapshot. |
+| `.env` | Runtime config the browser reads — the sheet name and the snapshot file name. |
+| `.github/workflows/deploy.yml` | GitHub Action: pulls the SharePoint workbook via Microsoft Graph and deploys to GitHub Pages. |
+| `AI_Accelerator_Agent_Inventory_Template.xlsx` | The source Excel workbook (local copy, git-ignored). |
+| `.gitignore` | Keeps `.env`, `portfolio.xlsx`, and the source workbook out of the repo. |
 | `README.md` | This file. |
+
+> `portfolio.xlsx` is **generated at deploy time** by the Action and is not committed. Locally, the
+> dashboard falls back to the embedded snapshot unless you provide a `portfolio.xlsx` yourself.
+
+---
+
+## How the data flows
+
+```
+Someone edits the Asset Register in SharePoint
+      ↓  (GitHub Action: on push, every 6 hours, or manual)
+Action authenticates to Microsoft Graph (app-only) and downloads the workbook
+      ↓
+Workbook is published next to the site as "portfolio.xlsx" (same-origin)
+      ↓  (browser fetches portfolio.xlsx, re-checks every 5 min)
+Dashboard renders live data — no sign-in, no CORS
+      ↓  (if portfolio.xlsx is missing)
+Dashboard uses the embedded snapshot baked into index.html
+```
+
+The page reports **Live · workbook snapshot** when it reads `portfolio.xlsx`, or **Embedded
+snapshot** when it falls back. (The status bar is hidden in the current layout, but the underlying
+behavior is unchanged.)
+
+---
+
+## Dashboard features
+
+- **KPI band** — headline counts with drill-down cards.
+- **Portfolio Composition** — three charts: *By Business Unit*, *By Domain*, and a **configurable
+  third chart** whose grouping you pick from a dropdown (Asset Type, Lifecycle Status, Maturity,
+  Hosting, Security Review, Repository, Repository Type, Documentation, Demo, Owner). A **Reset**
+  button clears all composition selections and restores the full data view.
+- **Asset Register** — a filterable, sortable table with a **Clear** button to drop all active
+  filters and the search query.
+- **Cross-filtering** — clicking a chart bar filters the rest of the dashboard; selections combine
+  across charts and the search box.
 
 ---
 
 ## Prerequisites
 
-- **Python 3** (used only to run a tiny local web server). Check with:
+- **Python 3** (used only to run a tiny local web server for local viewing). Check with:
   ```powershell
   python --version
   ```
-- A modern browser (Chrome / Edge recommended — enables true real-time file watching).
+- A modern browser (Chrome / Edge recommended).
 - Internet access on first load (the dashboard pulls the SheetJS library from a CDN).
 
 ---
 
 ## Quick start (run locally)
 
-The dashboard must be **served over HTTP** (not opened as a `file://` path), so it can read the
-workbook and the `.env` file.
+Serve the folder over HTTP (not `file://`) so the browser can read `.env` and any `portfolio.xlsx`.
 
 1. Open a terminal in this folder:
    ```powershell
@@ -42,108 +84,59 @@ workbook and the `.env` file.
    ```powershell
    python -m http.server 8000
    ```
-3. Open the dashboard in your browser:
+3. Open the dashboard:
    ```
-   http://localhost:8000/AI_Portfolio_Dashboard.html
+   http://localhost:8000/index.html
    ```
 
-The status pill near the top shows **Live** once it has connected to the workbook. It re-checks the
-file every 5 seconds and refreshes automatically when the data changes. Leave the terminal running;
-press `Ctrl+C` to stop the server.
+Without a local `portfolio.xlsx`, the page renders the **embedded snapshot**. To preview live data
+locally, drop a `portfolio.xlsx` into this folder (any export of the workbook saved with that name)
+and refresh — the page reads it same-origin and re-checks every 5 minutes.
+
+Leave the terminal running; press `Ctrl+C` to stop the server.
 
 ---
 
 ## Configure the data source (`.env`)
 
-Open `.env` and set the workbook file name and sheet. Save, then refresh the browser.
+The browser reads only two values from `.env`. Save, then refresh.
 
 ```dotenv
-# The workbook the dashboard reads (must live in THIS folder — see note below).
-EXCEL_FILE=AI_Accelerator_Agent_Inventory_Template.xlsx
-
 # The sheet/tab inside the workbook to read.
 SHEET_NAME=Accelerator Inventory
+
+# The published workbook snapshot the dashboard fetches (same-origin).
+SNAPSHOT_FILE=portfolio.xlsx
 ```
 
-> **Note:** A browser cannot fetch a SharePoint web link directly — sign-in and CORS block it.
-> `EXCEL_FILE` must point at a file that sits **in the same folder the dashboard is served from**.
-> The section below explains how to keep that file in sync with SharePoint automatically.
+> The remaining SharePoint / Entra values (`SHAREPOINT_URL`, `AAD_TENANT_ID`, `AAD_CLIENT_ID`,
+> `AAD_CLIENT_SECRET`) are **build-time only** — stored as GitHub repo secrets and used by the
+> deploy workflow, never by the browser. `.env` is git-ignored.
 
 ---
 
-## Use the SharePoint workbook as the live source
+## Deploy to GitHub Pages (live from SharePoint)
 
-The Asset Register lives in SharePoint / OneDrive:
-
-```
-https://netorgft1145305-my.sharepoint.com/.../AI_Accelerator_Agent_Inventory_Template (1).xlsx
-```
-
-To feed that data into the dashboard without manually downloading it each time, let the **OneDrive
-sync client** keep a local copy on disk. Edits made in the cloud sync down, and the dashboard picks
-them up on its next poll.
+The workflow in `.github/workflows/deploy.yml` runs on push to `main`, every 6 hours, and on manual
+dispatch. It authenticates to Microsoft Graph (app-only), downloads the SharePoint workbook, writes
+it as `portfolio.xlsx`, and publishes the site to GitHub Pages.
 
 ### One-time setup
 
-1. **Sync the Quadrant OneDrive that owns the file.**
-   - Click the OneDrive cloud icon in the system tray → gear ⚙ → **Settings** → **Account** →
-     **Add an account**.
-   - Sign in as `venkata_kaushik@quadranttechnologies.com`.
-   - Let it finish syncing. You'll get a folder like
-     `C:\Users\v-rkodaganti\OneDrive - Quadrant Technologies\...` containing
-     `AI_Accelerator_Agent_Inventory_Template (1).xlsx`.
+1. **Register an Entra (Azure AD) app** and grant it the **Application** Microsoft Graph permission
+   `Sites.Read.All`, with **admin consent** granted. Create a **client secret**.
+2. **Add repository secrets** (Settings → Secrets and variables → Actions):
+   | Secret | Value |
+   |--------|-------|
+   | `SHAREPOINT_URL` | The sharing link to the workbook. |
+   | `SHEET_NAME` | The sheet/tab to read, e.g. `Accelerator Inventory`. |
+   | `AAD_TENANT_ID` | Directory (tenant) ID of the app registration. |
+   | `AAD_CLIENT_ID` | Application (client) ID. |
+   | `AAD_CLIENT_SECRET` | A client secret for that app. |
+3. **Enable Pages from Actions**: Settings → Pages → Source → **GitHub Actions**.
 
-2. **Keep the dashboard next to the workbook.** Serve the dashboard from the folder that contains
-   the synced `.xlsx`. Either:
-   - copy `AI_Portfolio_Dashboard.html` and `.env` into that synced folder, **or**
-   - keep them here and copy the synced `.xlsx` into this folder.
-
-3. **Point `.env` at the synced file.** Either rename the synced file to
-   `AI_Accelerator_Agent_Inventory_Template.xlsx` (so it matches the default), or set the exact
-   name in `.env`:
-   ```dotenv
-   EXCEL_FILE=AI_Accelerator_Agent_Inventory_Template (1).xlsx
-   ```
-
-4. **Run the server** from that folder (`python -m http.server 8000`) and open the dashboard.
-
-### How updates flow
-
-```
-Someone edits the sheet in SharePoint
-      ↓  (OneDrive sync client)
-Local .xlsx on disk updates
-      ↓  (dashboard polls every 5s)
-Dashboard refreshes automatically — no manual re-selecting
-```
-
----
-
-## Manual / offline fallback
-
-If you don't serve over HTTP, or `.env` can't be reached, the dashboard falls back to an embedded
-snapshot and lets you connect a file by hand:
-
-- Click **Connect** and pick the `.xlsx` (Chrome/Edge keep it live via the File System Access API), or
-- **Drag and drop** the `.xlsx` onto the page (re-drop to refresh).
-
----
-
-## Hosting it for others (optional)
-
-For a single machine, the local server above is enough. To share it on your network:
-
-- Run the server bound to your machine so teammates on the same network can reach it:
-  ```powershell
-  python -m http.server 8000 --bind 0.0.0.0
-  ```
-  Then share `http://<your-machine-ip>:8000/AI_Portfolio_Dashboard.html`.
-- Because the data still comes from a local/synced file, the machine running the server must have the
-  OneDrive-synced workbook.
-
-> For a true multi-user, always-on deployment that reads straight from SharePoint (each viewer signs
-> in), the dashboard would need a Microsoft Graph + MSAL integration and an app registration — a
-> larger change than the local setup documented here.
+Once configured, pushing to `main` (or waiting for the 6-hour schedule) refreshes the published
+snapshot and redeploys the site automatically.
 
 ---
 
@@ -151,8 +144,9 @@ For a single machine, the local server above is enough. To share it on your netw
 
 | Symptom | Fix |
 |---------|-----|
-| Status stays on "Embedded snapshot" | Make sure you opened it via `http://localhost:8000/...`, not by double-clicking the file. |
-| "Could not read file" / wrong data | Check `EXCEL_FILE` and `SHEET_NAME` in `.env` match the actual file name and tab exactly. |
+| Shows the embedded snapshot instead of live data | Confirm `portfolio.xlsx` exists next to the page (locally or via the deploy Action) and matches `SNAPSHOT_FILE` in `.env`. |
 | Charts empty / library error | You're offline — the SheetJS CDN couldn't load. Reconnect to the internet and refresh. |
-| Data not updating | Confirm OneDrive shows the file as synced (green check), and the server is still running. |
+| Wrong data / empty table | Check `SHEET_NAME` matches the workbook tab exactly. |
+| Deploy Action fails on token/download | Verify the Entra secrets, that admin consent for `Sites.Read.All` is granted, and that `SHAREPOINT_URL` is a valid sharing link. |
+| Local page won't read `.env` | Serve via `http://localhost:8000/...`, not by double-clicking the file. |
 | Port 8000 already in use | Run on another port, e.g. `python -m http.server 8080`, and open that port in the URL. |

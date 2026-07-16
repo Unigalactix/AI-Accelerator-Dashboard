@@ -166,6 +166,50 @@
   .meter span { font-size:11px; color:var(--slate); font-family:'Courier New',monospace; }
   .miss { color:var(--rose); font-weight:700; font-size:14px; }
   .ok { color:var(--teal); font-weight:700; font-size:14px; }
+
+  /* Scrollable table region — sticky header + frozen first column */
+  .table-wrap { overflow:auto; max-height:72vh; border:1px solid var(--line); background:var(--card); }
+  #tbl { border-collapse:separate; border-spacing:0; }
+  #tbl thead th { position:sticky; top:0; z-index:3; background:var(--paper); }
+  #tbl thead tr.filters th { top:var(--head-h,34px); z-index:3; }
+  #tbl th:first-child, #tbl td:first-child { position:sticky; left:0; background:var(--paper); }
+  #tbl thead th:first-child { z-index:5; }
+  #tbl tbody td:first-child { z-index:1; box-shadow:inset -1px 0 0 var(--line); }
+  #tbl tbody tr:hover td, #tbl tbody tr:hover td:first-child { background:#faf8f3; }
+  /* Compact density */
+  #tbl.compact thead th { padding:6px 8px; }
+  #tbl.compact thead tr.filters th { padding:4px 6px 6px; }
+  #tbl.compact tbody td { padding:6px 8px; font-size:11.5px; }
+
+  /* Table tools (density + column visibility) */
+  .tbl-tools { display:flex; gap:8px; align-items:center; margin-left:auto; }
+  .tool-btn {
+    padding:7px 12px; border:1px solid var(--line); background:var(--card);
+    font-size:11.5px; letter-spacing:.04em; text-transform:uppercase; cursor:pointer;
+    color:var(--slate); user-select:none; white-space:nowrap;
+  }
+  .tool-btn:hover { border-color:var(--ink); color:var(--ink); }
+  .tool-btn.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .col-menu-wrap { position:relative; }
+  .col-menu {
+    position:absolute; right:0; top:calc(100% + 4px); background:var(--card);
+    border:1px solid var(--line); box-shadow:0 8px 24px rgba(13,27,42,.14);
+    padding:6px; z-index:30; min-width:180px; max-height:60vh; overflow:auto;
+  }
+  .col-menu[hidden] { display:none; }
+  .col-menu label {
+    display:flex; align-items:center; gap:9px; padding:6px 8px; font-size:12.5px;
+    color:var(--ink); cursor:pointer; text-transform:none; letter-spacing:0;
+  }
+  .col-menu label:hover { background:#faf8f3; }
+  .col-menu input { cursor:pointer; }
+  .col-menu .col-menu-foot { display:flex; gap:6px; padding:6px 4px 2px; border-top:1px solid var(--line); margin-top:4px; }
+  .col-menu .col-menu-foot button {
+    flex:1; font-size:10.5px; letter-spacing:.04em; text-transform:uppercase; padding:5px;
+    border:1px solid var(--line); background:var(--card); color:var(--slate); cursor:pointer;
+  }
+  .col-menu .col-menu-foot button:hover { border-color:var(--ink); color:var(--ink); }
+
   footer { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); font-size:11px; color:var(--mist); }
   /* Live data-source bar */
   .datasource {
@@ -213,6 +257,8 @@
   .drawer-body { padding:6px 26px 26px; max-height:66vh; overflow:auto; }
   .drawer-body table { margin-top:6px; }
   .drawer-empty { padding:40px 6px; text-align:center; color:var(--mist); font-size:13px; }
+  .drill-chips { display:flex; flex-wrap:wrap; gap:8px; padding:4px 0 14px; border-bottom:1px solid var(--line); margin-bottom:4px; }
+  .drill-chips .chip b { margin-left:5px; font-weight:700; }
   @media(max-width:860px){
     .kpis{grid-template-columns:repeat(2,1fr);}
     .cols2,.cols3{grid-template-columns:1fr;}
@@ -275,38 +321,47 @@
     <span class="chip" data-f="Q-Suite">Q-Suite</span>
     <span class="chip" data-f="incomplete">Needs data &lt;50%</span>
     <span class="chip chip-clear" id="clearFilters" role="button" tabindex="0">Clear</span>
+    <div class="tbl-tools">
+      <button class="tool-btn" id="densityBtn" type="button" aria-pressed="false">Compact</button>
+      <div class="col-menu-wrap">
+        <button class="tool-btn" id="colBtn" type="button" aria-haspopup="true" aria-expanded="false">Columns &#9662;</button>
+        <div class="col-menu" id="colMenu" hidden role="menu"></div>
+      </div>
+    </div>
   </div>
+  <div class="table-wrap">
   <table id="tbl">
     <thead>
       <tr>
-      <th data-s="name">Asset</th>
-      <th data-s="type">Type</th>
-      <th data-s="bu" class="hide-sm">BU</th>
-      <th data-s="owner" class="hide-sm">Owner</th>
-      <th data-s="domain" class="hide-sm">Domain</th>
-      <th data-s="maturity">Maturity</th>
-      <th data-s="status">Status</th>
-      <th data-s="security" class="hide-sm">Security</th>
-      <th data-s="hosting" class="hide-sm">Hosting</th>
-      <th data-s="hasRepo" class="hide-sm">Repo</th>
-      <th data-s="complete">Data</th>
+      <th data-s="name" class="c-name">Asset</th>
+      <th data-s="type" class="c-type">Type</th>
+      <th data-s="bu" class="hide-sm c-bu">BU</th>
+      <th data-s="owner" class="hide-sm c-owner">Owner</th>
+      <th data-s="domain" class="hide-sm c-domain">Domain</th>
+      <th data-s="maturity" class="c-maturity">Maturity</th>
+      <th data-s="status" class="c-status">Status</th>
+      <th data-s="security" class="hide-sm c-security">Security</th>
+      <th data-s="hosting" class="hide-sm c-hosting">Hosting</th>
+      <th data-s="hasRepo" class="hide-sm c-repo">Repo</th>
+      <th data-s="complete" class="c-complete">Data</th>
       </tr>
       <tr class="filters">
-        <th></th>
-        <th><select data-col="type"></select></th>
-        <th class="hide-sm"><select data-col="bu"></select></th>
-        <th class="hide-sm"><select data-col="owner"></select></th>
-        <th class="hide-sm"><select data-col="domain"></select></th>
-        <th><select data-col="maturity"></select></th>
-        <th><select data-col="status"></select></th>
-        <th class="hide-sm"><select data-col="security"></select></th>
-        <th class="hide-sm"><select data-col="hosting"></select></th>
-        <th class="hide-sm"><select data-col="hasRepo"></select></th>
-        <th></th>
+        <th class="c-name"></th>
+        <th class="c-type"><select data-col="type"></select></th>
+        <th class="hide-sm c-bu"><select data-col="bu"></select></th>
+        <th class="hide-sm c-owner"><select data-col="owner"></select></th>
+        <th class="hide-sm c-domain"><select data-col="domain"></select></th>
+        <th class="c-maturity"><select data-col="maturity"></select></th>
+        <th class="c-status"><select data-col="status"></select></th>
+        <th class="hide-sm c-security"><select data-col="security"></select></th>
+        <th class="hide-sm c-hosting"><select data-col="hosting"></select></th>
+        <th class="hide-sm c-repo"><select data-col="hasRepo"></select></th>
+        <th class="c-complete"></th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
   </table>
+  </div>
 
   <footer>
     Generated from <b>AI_Accelerator_Agent_Inventory_Template.xlsx</b> &middot; Asset Register sheet (62 rows).
@@ -377,7 +432,7 @@ function buildStats(){
   const view = viewAgents();
   document.getElementById('totalCount').textContent = view.length;
   const active = view.filter(a=>a.status==='Production').length;
-  const launchReady = view.filter(a=>a.maturity==='Beta'||a.maturity==='Stable'||a.maturity==='Mature / Battle-tested').length;
+  const launchReady = view.filter(a=>a.status==='In Development').length;
   const secReviewed = view.filter(a=>a.security==='Approved'||a.security==='Approved with Conditions').length;
   const withRepo = view.filter(a=>a.hasRepo).length;
   const avgComplete = view.length? Math.round(view.reduce((s,a)=>s+a.complete,0)/view.length):0;
@@ -385,7 +440,7 @@ function buildStats(){
   const kpis = [
     {n:view.length, l:'Total Assets', sub:'agents + accelerators + products', cls:'accent-ink', drill:'all'},
     {n:active, l:'In Production', sub:pct(active,view.length)+'% of portfolio', cls:'accent-teal', drill:'active'},
-    {n:launchReady, l:'Launch-Ready', sub:'beta, stable or mature', cls:'accent-teal', drill:'launch'},
+    {n:launchReady, l:'In Development', sub:'actively being built', cls:'accent-teal', drill:'launch'},
     {n:secReviewed, l:'Security Approved', sub:secReviewed===0?'none recorded yet':pct(secReviewed,view.length)+'% approved', cls:'accent-rose', drill:'security'},
     {n:avgComplete, suffix:'%', l:'Avg Data Completeness', sub:'across governance fields', cls:'accent-amber', drill:'complete'},
   ];
@@ -476,20 +531,90 @@ function render(){
   });
   document.getElementById('tbody').innerHTML = rows.map(a=>`
     <tr>
-      <td><div class="aname">${esc(a.name)}</div><div class="aid">${esc(a.id)}</div></td>
-      <td>${typeTag(a.type)}</td>
-      <td class="hide-sm">${esc(a.bu)}</td>
-      <td class="hide-sm">${a.owner?esc(a.owner):'<span class="miss">&mdash;</span>'}</td>
-      <td class="hide-sm">${a.domain==='Uncategorized'?'<span style="color:var(--mist)">Uncategorized</span>':esc(a.domain)}</td>
-      <td style="white-space:nowrap">${dim(a.maturity,'Unspecified')}</td>
-      <td style="white-space:nowrap">${statusDot(a.status)}</td>
-      <td class="hide-sm">${secBadge(a.security)}</td>
-      <td class="hide-sm">${dim(a.hosting,'Not set')}</td>
-      <td class="hide-sm">${a.hasRepo?'<span class="ok">&check;</span>':'<span class="miss">&times;</span>'}</td>
-      <td><div class="meter"><div class="track2"><div class="f2" style="width:${a.complete}%;background:${a.complete<40?rose:a.complete<70?amber:teal}"></div></div><span>${a.complete}%</span></div></td>
+      <td class="c-name"><div class="aname">${esc(a.name)}</div><div class="aid">${esc(a.id)}</div></td>
+      <td class="c-type">${typeTag(a.type)}</td>
+      <td class="hide-sm c-bu">${esc(a.bu)}</td>
+      <td class="hide-sm c-owner">${a.owner?esc(a.owner):'<span class="miss">&mdash;</span>'}</td>
+      <td class="hide-sm c-domain">${a.domain==='Uncategorized'?'<span style="color:var(--mist)">Uncategorized</span>':esc(a.domain)}</td>
+      <td class="c-maturity" style="white-space:nowrap">${dim(a.maturity,'Unspecified')}</td>
+      <td class="c-status" style="white-space:nowrap">${statusDot(a.status)}</td>
+      <td class="hide-sm c-security">${secBadge(a.security)}</td>
+      <td class="hide-sm c-hosting">${dim(a.hosting,'Not set')}</td>
+      <td class="hide-sm c-repo">${a.hasRepo?'<span class="ok">&check;</span>':'<span class="miss">&times;</span>'}</td>
+      <td class="c-complete"><div class="meter"><div class="track2"><div class="f2" style="width:${a.complete}%;background:${a.complete<40?rose:a.complete<70?amber:teal}"></div></div><span>${a.complete}%</span></div></td>
     </tr>`).join('');
+  syncHeadOffset();
 }
 document.getElementById('search').addEventListener('input', e=>{state.q=e.target.value; render();});
+
+/* =====================================================================
+   TABLE TOOLS — sticky-header offset, column visibility, density toggle
+   ===================================================================== */
+// Keep the second (filter) header row docked directly under the first row
+// while the table scrolls vertically inside .table-wrap.
+function syncHeadOffset(){
+  const tbl = document.getElementById('tbl');
+  const firstRow = tbl && tbl.querySelector('thead tr');
+  if(firstRow) tbl.style.setProperty('--head-h', firstRow.offsetHeight + 'px');
+}
+window.addEventListener('resize', syncHeadOffset);
+
+// Columns that can be shown/hidden (Asset stays pinned & always visible).
+const TABLE_COLUMNS = [
+  {key:'type', label:'Type'}, {key:'bu', label:'BU'}, {key:'owner', label:'Owner'},
+  {key:'domain', label:'Domain'}, {key:'maturity', label:'Maturity'}, {key:'status', label:'Status'},
+  {key:'security', label:'Security'}, {key:'hosting', label:'Hosting'}, {key:'repo', label:'Repo'},
+  {key:'complete', label:'Data'},
+];
+const hiddenCols = new Set();
+const colVisStyle = document.createElement('style');
+document.head.appendChild(colVisStyle);
+function applyColVis(){
+  colVisStyle.textContent = [...hiddenCols].map(k=>`#tbl .c-${k}{display:none}`).join('');
+  syncHeadOffset();
+}
+function buildColMenu(){
+  const menu = document.getElementById('colMenu');
+  menu.innerHTML =
+    TABLE_COLUMNS.map(c=>`<label><input type="checkbox" data-col="${c.key}" ${hiddenCols.has(c.key)?'':'checked'}> ${c.label}</label>`).join('')
+    + `<div class="col-menu-foot"><button type="button" data-all="show">Show all</button><button type="button" data-all="hide">Hide all</button></div>`;
+}
+(function initTableTools(){
+  const densityBtn = document.getElementById('densityBtn');
+  const colBtn = document.getElementById('colBtn');
+  const colMenu = document.getElementById('colMenu');
+  const tbl = document.getElementById('tbl');
+
+  densityBtn.addEventListener('click', ()=>{
+    const compact = tbl.classList.toggle('compact');
+    densityBtn.classList.toggle('active', compact);
+    densityBtn.setAttribute('aria-pressed', compact);
+    densityBtn.textContent = compact ? 'Comfortable' : 'Compact';
+    syncHeadOffset();
+  });
+
+  buildColMenu();
+  colBtn.addEventListener('click', e=>{
+    e.stopPropagation();
+    const open = colMenu.hidden;
+    colMenu.hidden = !open;
+    colBtn.setAttribute('aria-expanded', open);
+  });
+  colMenu.addEventListener('click', e=>e.stopPropagation());
+  colMenu.addEventListener('change', e=>{
+    const cb = e.target.closest('input[data-col]'); if(!cb) return;
+    if(cb.checked) hiddenCols.delete(cb.dataset.col); else hiddenCols.add(cb.dataset.col);
+    applyColVis();
+  });
+  colMenu.addEventListener('click', e=>{
+    const btn = e.target.closest('button[data-all]'); if(!btn) return;
+    if(btn.dataset.all==='hide') TABLE_COLUMNS.forEach(c=>hiddenCols.add(c.key));
+    else hiddenCols.clear();
+    buildColMenu(); applyColVis();
+  });
+  document.addEventListener('click', ()=>{ if(!colMenu.hidden){ colMenu.hidden=true; colBtn.setAttribute('aria-expanded', false); } });
+})();
+
 document.querySelectorAll('.chip[data-f]').forEach(c=>c.addEventListener('click',()=>{
   document.querySelectorAll('.chip[data-f]').forEach(x=>x.classList.remove('on'));
   c.classList.add('on'); state.f=c.dataset.f; render();
@@ -590,11 +715,10 @@ const DRILLS = {
              filter:()=>true, sort:(a,b)=>a.id.localeCompare(b.id)},
   active:   {eyebrow:'Lifecycle', title:'In Production',       sub:'Assets flagged Production in the register',
              filter:a=>a.status==='Production', sort:(a,b)=>b.complete-a.complete},
-  launch:   {eyebrow:'Maturity',  title:'Launch-Ready',       sub:'Beta, Stable or Mature — closest to client use',
-             filter:a=>a.maturity==='Beta'||a.maturity==='Stable'||a.maturity==='Mature / Battle-tested', sort:(a,b)=>b.complete-a.complete},
-  security: {eyebrow:'Governance',title:'Security Approved',  sub:'Assets that passed a security review',
-             filter:a=>a.security==='Approved'||a.security==='Approved with Conditions', sort:(a,b)=>b.complete-a.complete,
-             empty:'No assets have an approved security review yet. This is the top compliance gap to close before any client exposure.'},
+  launch:   {eyebrow:'Lifecycle',  title:'In Development',      sub:'Assets flagged In Development in the register',
+             filter:a=>a.status==='In Development', sort:(a,b)=>b.complete-a.complete},
+  security: {eyebrow:'Governance',title:'Security Review',  sub:'All assets by security review status — use the filters to focus',
+             sec:true, sort:(a,b)=>b.complete-a.complete},
   complete: {eyebrow:'Data Quality', title:'Data Completeness', sub:'Ranked lowest-first — the laggards needing data most',
              filter:()=>true, sort:(a,b)=>a.complete-b.complete}
 };
@@ -618,15 +742,58 @@ function drillRowsHTML(rows){
       </tr>`).join('')}</tbody>
   </table>`;
 }
+// Security drill-down: shows every asset with a predefined status filter.
+const SEC_STATUSES = ['Not Reviewed','In Progress','Approved','Approved with Conditions','Needs Update','Not Applicable'];
+let drillSecFilter = null;
+function drillSecRowsHTML(rows){
+  if(!rows.length) return '';
+  return `<table>
+    <thead><tr>
+      <th>Asset</th><th>Type</th><th class="hide-sm">BU</th><th class="hide-sm">Owner</th>
+      <th>Security</th><th>Status</th><th>Data</th>
+    </tr></thead>
+    <tbody>${rows.map(a=>`
+      <tr>
+        <td><div class="aname">${esc(a.name)}</div><div class="aid">${esc(a.id)}</div></td>
+        <td>${typeTag(a.type)}</td>
+        <td class="hide-sm">${esc(a.bu)}</td>
+        <td class="hide-sm">${a.owner?esc(a.owner):'<span class="miss">&mdash;</span>'}</td>
+        <td>${secBadge(a.security)}</td>
+        <td style="white-space:nowrap">${statusDot(a.status)}</td>
+        <td><div class="meter"><div class="track2"><div class="f2" style="width:${a.complete}%;background:${a.complete<40?rose:a.complete<70?amber:teal}"></div></div><span>${a.complete}%</span></div></td>
+      </tr>`).join('')}</tbody>
+  </table>`;
+}
+function renderSecDrill(){
+  const base = viewAgents().slice().sort(DRILLS.security.sort);
+  const counts = {};
+  base.forEach(a=>{ counts[a.security] = (counts[a.security]||0) + 1; });
+  const extra = Object.keys(counts).filter(s=>!SEC_STATUSES.includes(s)).sort();
+  const chipStatuses = [...SEC_STATUSES, ...extra];
+  const rows = drillSecFilter ? base.filter(a=>a.security===drillSecFilter) : base;
+  document.getElementById('drawerCount').textContent = rows.length;
+  const chips = `<div class="drill-chips">`
+    + `<button class="chip${drillSecFilter===null?' on':''}" data-sec="__all">All <b>${base.length}</b></button>`
+    + chipStatuses.map(s=>`<button class="chip${drillSecFilter===s?' on':''}" data-sec="${esc(s)}">${esc(s)} <b>${counts[s]||0}</b></button>`).join('')
+    + `</div>`;
+  document.getElementById('drawerBody').innerHTML = chips +
+    (rows.length ? drillSecRowsHTML(rows)
+                 : `<div class="drawer-empty">No assets with a &ldquo;${esc(drillSecFilter)}&rdquo; security status.</div>`);
+}
 function openDrill(key){
   const d = DRILLS[key]; if(!d) return;
-  const rows = viewAgents().filter(d.filter).slice().sort(d.sort);
   document.getElementById('drawerEyebrow').textContent = d.eyebrow;
   document.getElementById('drawerTitle').textContent = d.title;
   document.getElementById('drawerSub').textContent = d.sub;
-  document.getElementById('drawerCount').textContent = rows.length;
-  document.getElementById('drawerBody').innerHTML =
-    rows.length ? drillRowsHTML(rows) : `<div class="drawer-empty">${d.empty||'No matching assets.'}</div>`;
+  if(d.sec){
+    drillSecFilter = null;
+    renderSecDrill();
+  } else {
+    const rows = viewAgents().filter(d.filter).slice().sort(d.sort);
+    document.getElementById('drawerCount').textContent = rows.length;
+    document.getElementById('drawerBody').innerHTML =
+      rows.length ? drillRowsHTML(rows) : `<div class="drawer-empty">${d.empty||'No matching assets.'}</div>`;
+  }
   const back = document.getElementById('drawerBack');
   back.classList.add('open');
   document.getElementById('drawerClose').focus();
@@ -642,8 +809,12 @@ document.getElementById('kpis').addEventListener('keydown', e=>{
 });
 document.getElementById('drawerClose').addEventListener('click', closeDrill);
 document.getElementById('drawerBack').addEventListener('click', e=>{ if(e.target.id==='drawerBack') closeDrill(); });
+document.getElementById('drawerBody').addEventListener('click', e=>{
+  const chip = e.target.closest('[data-sec]'); if(!chip) return;
+  drillSecFilter = chip.dataset.sec==='__all' ? null : chip.dataset.sec;
+  renderSecDrill();
+});
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeDrill(); });
-
 /* =====================================================================
    LIVE EXCEL CONNECTION
    Reads the "Accelerator Inventory" sheet and maps it to the dashboard
