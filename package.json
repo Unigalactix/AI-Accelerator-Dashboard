@@ -1,0 +1,12 @@
+{
+  "name": "ai-accelerator-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "AI Accelerator Portfolio dashboard with live SharePoint workbook proxy (Graph via Managed Identity on Azure, Azure CLI locally).",
+  "scripts": {
+    "start": "node dev-server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

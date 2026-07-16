@@ -1,17 +1,20 @@
 // ============================================================
-//  LOCAL DEV SERVER — live SharePoint workbook proxy
+//  WORKBOOK PROXY SERVER — live SharePoint workbook via Graph
 //  Serves this folder over http AND proxies the live workbook
 //  from SharePoint via Microsoft Graph so the dashboard shows
-//  real-time data during local testing.
+//  real-time data.
 //
-//  Auth: uses your existing Azure CLI login (az login). It shells
-//  out to `az account get-access-token` for a Graph token — no
-//  secrets are stored in this file or the repo.
+//  Auth (auto-detected):
+//   - On Azure App Service (Easy Auth): reads the workbook as the SIGNED-IN
+//     USER via the 'X-MS-TOKEN-AAD-ACCESS-TOKEN' header, honouring that user's
+//     own @quadranttechnologies.com view access.
+//   - Locally: shells out to `az account get-access-token`.
+//  No secrets are stored in this file or the repo.
 //
-//  Run:  node dev-server.js
-//  Then open:  http://localhost:5173
+//  Config: SHAREPOINT_URL / SHEET_NAME / REFRESH_SECONDS come from
+//  .env locally, or App Service application settings in the cloud.
 //
-//  LOCAL TESTING ONLY. Do not deploy this server.
+//  Run:  node dev-server.js   (listens on PORT, default 5173)
 // ============================================================
 const http = require('http');
 const fs = require('fs');
@@ -36,6 +39,8 @@ function readEnv() {
       env[t.slice(0, eq).trim()] = t.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
     });
   } catch (_) { /* no .env */ }
+  // App Service / prod: environment variables override .env
+  ['SHAREPOINT_URL', 'SHEET_NAME', 'REFRESH_SECONDS'].forEach(k => { if (process.env[k]) env[k] = process.env[k]; });
   return env;
 }
 const ENV = readEnv();
@@ -48,21 +53,27 @@ if (!SHARE_URL) {
 const shareId = 'u!' + Buffer.from(SHARE_URL, 'utf8').toString('base64')
   .replace(/=+$/, '').replace(/\//g, '_').replace(/\+/g, '-');
 
-// ---- Graph token via Azure CLI (cached until near expiry) --
-let tokenCache = { value: null, exp: 0 };
-function getToken() {
+// ---- Graph token -------------------------------------------------
+// On Azure App Service (Easy Auth): use the SIGNED-IN USER's Graph token,
+//   injected per-request as the 'X-MS-TOKEN-AAD-ACCESS-TOKEN' header, so the
+//   workbook is read with that user's own @quadranttechnologies.com access.
+// Locally: fall back to your Azure CLI login (cached until near expiry).
+let cliTokenCache = { value: null, exp: 0 };
+async function getToken(req) {
+  const userTok = req && req.headers && req.headers['x-ms-token-aad-access-token'];
+  if (userTok) return userTok;
   const now = Date.now();
-  if (tokenCache.value && now < tokenCache.exp - 120000) return tokenCache.value;
+  if (cliTokenCache.value && now < cliTokenCache.exp - 120000) return cliTokenCache.value;
   const out = execFileSync('az', ['account', 'get-access-token', '--resource',
     'https://graph.microsoft.com', '-o', 'json'], { encoding: 'utf8', shell: true });
   const j = JSON.parse(out);
-  tokenCache = { value: j.accessToken, exp: new Date(j.expiresOn).getTime() };
-  return tokenCache.value;
+  cliTokenCache = { value: j.accessToken, exp: new Date(j.expiresOn).getTime() };
+  return cliTokenCache.value;
 }
 
 // ---- fetch the live workbook -------------------------------
-async function fetchWorkbook() {
-  const token = getToken();
+async function fetchWorkbook(req) {
+  const token = await getToken(req);
   const headers = { Authorization: 'Bearer ' + token };
   // metadata (for the change signature) + content
   const metaRes = await fetch(`${GRAPH}/shares/${shareId}/driveItem?$select=lastModifiedDateTime,size`, { headers });
@@ -103,7 +114,7 @@ http.createServer(async (req, res) => {
   const urlPath = req.url.split('?')[0];
   if (urlPath === LIVE_PATH) {
     try {
-      const { buf, etag, modified } = await fetchWorkbook();
+      const { buf, etag, modified } = await fetchWorkbook(req);
       if (req.headers['if-none-match'] === etag) { res.writeHead(304).end(); return; }
       res.writeHead(200, {
         'Content-Type': MIME['.xlsx'],
@@ -120,7 +131,8 @@ http.createServer(async (req, res) => {
   }
   serveStatic(req, res);
 }).listen(PORT, () => {
-  console.log(`\n  Live-data dev server running:  http://localhost:${PORT}`);
+  const mode = (process.env.WEBSITE_SITE_NAME ? "Easy Auth user token" : "Azure CLI");
+  console.log(`\n  Workbook proxy server running on port ${PORT}`);
   console.log(`  Live workbook proxied at:      ${LIVE_PATH}`);
-  console.log(`  Signed in via Azure CLI (Graph token). Ctrl+C to stop.\n`);
+  console.log(`  Graph auth: ${mode}. Ctrl+C to stop.\n`);
 });

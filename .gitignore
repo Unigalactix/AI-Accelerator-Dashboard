@@ -16,6 +16,9 @@ npm-debug.log*
 sheet-dump.json
 *.local.json
 
+# Deployment package (generated for App Service zip deploy)
+app.zip
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
