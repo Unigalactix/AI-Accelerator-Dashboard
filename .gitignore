@@ -7,6 +7,15 @@ portfolio.xlsx
 # Source workbook — kept out of the repo.
 AI_Accelerator_Agent_Inventory_Template.xlsx
 
+# Node / npm — transient local installs (e.g. `npm install xlsx --no-save` used for debugging)
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# Local debug artifacts
+sheet-dump.json
+*.local.json
+
 # OS / editor cruft
 .DS_Store
 Thumbs.db
