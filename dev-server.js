@@ -112,6 +112,19 @@ function serveStatic(req, res) {
 // ---- server ------------------------------------------------
 http.createServer(async (req, res) => {
   const urlPath = req.url.split('?')[0];
+  // Client runtime config. Generated from server env so the browser knows to
+  // read the live proxy (/workbook.xlsx) and which sheet to parse. This keeps
+  // SHAREPOINT_URL server-side only (never shipped to the browser).
+  if (urlPath === '/.env') {
+    const body = [
+      `SHEET_NAME=${ENV.SHEET_NAME || ''}`,
+      `WORKBOOK_URL=${LIVE_PATH}`,
+      `REFRESH_SECONDS=${ENV.REFRESH_SECONDS || 45}`
+    ].join('\n');
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(body);
+    return;
+  }
   if (urlPath === LIVE_PATH) {
     try {
       const { buf, etag, modified } = await fetchWorkbook(req);
