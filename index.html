@@ -134,15 +134,32 @@
     cursor:pointer; white-space:nowrap;
   }
   thead th:hover { color:var(--ink); }
-  thead tr.filters th { padding:6px 8px 10px; border-bottom:1px solid var(--line); cursor:default; }
-  thead tr.filters th:hover { color:var(--slate); }
-  thead tr.filters select {
-    width:100%; min-width:70px; max-width:150px; padding:5px 6px; font-family:inherit;
-    font-size:11px; color:var(--ink); background:var(--card); border:1px solid var(--line);
-    cursor:pointer; text-transform:none; letter-spacing:0;
+  /* Column header with inline filter caret */
+  .th-h { display:inline-flex; align-items:center; gap:5px; }
+  .th-flt {
+    border:none; background:none; cursor:pointer; padding:1px 3px; margin:0;
+    color:var(--mist); font-size:9px; line-height:1; border-radius:4px;
+    display:inline-flex; align-items:center; text-transform:none; letter-spacing:0;
+    transition:color .12s ease, background .12s ease;
   }
-  thead tr.filters select:focus { outline:1px solid var(--teal); }
-  thead tr.filters select.active { border-color:var(--ink); background:var(--ink); color:#fff; }
+  .th-flt:hover { color:var(--ink); background:var(--line); }
+  .th-flt.active { color:#fff; background:var(--ink); }
+  /* Filter popup menu */
+  .flt-menu {
+    position:fixed; z-index:9999; min-width:160px; max-width:260px; max-height:320px; overflow:auto;
+    background:var(--card); border:1px solid var(--line); border-radius:9px;
+    box-shadow:0 10px 30px rgba(13,27,42,.20); padding:5px;
+  }
+  .flt-menu button {
+    display:flex; align-items:center; gap:8px; width:100%; text-align:left;
+    padding:7px 9px; border:none; background:none; cursor:pointer; border-radius:6px;
+    color:var(--ink); font-family:inherit; font-size:12px; text-transform:none; letter-spacing:0;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .flt-menu button:hover { background:var(--paper); }
+  .flt-menu button.sel { background:var(--ink); color:#fff; }
+  .flt-menu .cm-check { width:12px; flex:none; font-size:11px; }
+  .flt-menu .cm-all { color:var(--slate); border-bottom:1px solid var(--line); border-radius:0; margin-bottom:3px; padding-bottom:8px; }
   tbody td { padding:11px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
   tbody tr:hover { background:#faf8f3; }
   .aname { font-weight:600; color:var(--ink); }
@@ -181,14 +198,12 @@
   .table-wrap { overflow:auto; max-height:72vh; border:1px solid var(--line); background:var(--card); }
   #tbl { border-collapse:separate; border-spacing:0; }
   #tbl thead th { position:sticky; top:0; z-index:3; background:var(--paper); }
-  #tbl thead tr.filters th { top:var(--head-h,34px); z-index:3; }
   #tbl th:first-child, #tbl td:first-child { position:sticky; left:0; background:var(--paper); }
   #tbl thead th:first-child { z-index:5; }
   #tbl tbody td:first-child { z-index:1; box-shadow:inset -1px 0 0 var(--line); }
   #tbl tbody tr:hover td, #tbl tbody tr:hover td:first-child { background:#faf8f3; }
   /* Compact density */
   #tbl.compact thead th { padding:6px 8px; }
-  #tbl.compact thead tr.filters th { padding:4px 6px 6px; }
   #tbl.compact tbody td { padding:6px 8px; font-size:11.5px; }
 
   /* Table tools (density + column visibility) */
@@ -344,29 +359,16 @@
     <thead>
       <tr>
       <th data-s="name" class="c-name">Asset</th>
-      <th data-s="type" class="c-type">Type</th>
-      <th data-s="bu" class="hide-sm c-bu">BU</th>
-      <th data-s="owner" class="hide-sm c-owner">Owner</th>
-      <th data-s="domain" class="hide-sm c-domain">Domain</th>
-      <th data-s="maturity" class="c-maturity">Maturity</th>
-      <th data-s="status" class="c-status">Status</th>
-      <th data-s="security" class="hide-sm c-security">Security</th>
-      <th data-s="hosting" class="hide-sm c-hosting">Hosting</th>
-      <th data-s="hasRepo" class="hide-sm c-repo">Repo</th>
+      <th data-s="type" class="c-type"><span class="th-h"><span class="th-t">Type</span><button type="button" class="th-flt" data-col="type" aria-label="Filter Type">&#9660;</button></span></th>
+      <th data-s="bu" class="hide-sm c-bu"><span class="th-h"><span class="th-t">BU</span><button type="button" class="th-flt" data-col="bu" aria-label="Filter BU">&#9660;</button></span></th>
+      <th data-s="owner" class="hide-sm c-owner"><span class="th-h"><span class="th-t">Owner</span><button type="button" class="th-flt" data-col="owner" aria-label="Filter Owner">&#9660;</button></span></th>
+      <th data-s="domain" class="hide-sm c-domain"><span class="th-h"><span class="th-t">Domain</span><button type="button" class="th-flt" data-col="domain" aria-label="Filter Domain">&#9660;</button></span></th>
+      <th data-s="maturity" class="c-maturity"><span class="th-h"><span class="th-t">Maturity</span><button type="button" class="th-flt" data-col="maturity" aria-label="Filter Maturity">&#9660;</button></span></th>
+      <th data-s="status" class="c-status"><span class="th-h"><span class="th-t">Status</span><button type="button" class="th-flt" data-col="status" aria-label="Filter Status">&#9660;</button></span></th>
+      <th data-s="security" class="hide-sm c-security"><span class="th-h"><span class="th-t">Security</span><button type="button" class="th-flt" data-col="security" aria-label="Filter Security">&#9660;</button></span></th>
+      <th data-s="hosting" class="hide-sm c-hosting"><span class="th-h"><span class="th-t">Hosting</span><button type="button" class="th-flt" data-col="hosting" aria-label="Filter Hosting">&#9660;</button></span></th>
+      <th data-s="hasRepo" class="hide-sm c-repo"><span class="th-h"><span class="th-t">Repo</span><button type="button" class="th-flt" data-col="hasRepo" aria-label="Filter Repo">&#9660;</button></span></th>
       <th data-s="complete" class="c-complete">Data</th>
-      </tr>
-      <tr class="filters">
-        <th class="c-name"></th>
-        <th class="c-type"><select data-col="type"></select></th>
-        <th class="hide-sm c-bu"><select data-col="bu"></select></th>
-        <th class="hide-sm c-owner"><select data-col="owner"></select></th>
-        <th class="hide-sm c-domain"><select data-col="domain"></select></th>
-        <th class="c-maturity"><select data-col="maturity"></select></th>
-        <th class="c-status"><select data-col="status"></select></th>
-        <th class="hide-sm c-security"><select data-col="security"></select></th>
-        <th class="hide-sm c-hosting"><select data-col="hosting"></select></th>
-        <th class="hide-sm c-repo"><select data-col="hasRepo"></select></th>
-        <th class="c-complete"></th>
       </tr>
     </thead>
     <tbody id="tbody"></tbody>
@@ -736,30 +738,64 @@ const FILTER_LABELS = {
   maturity:'All maturity', status:'All status', security:'All security',
   hosting:'All hosting', hasRepo:'Repo: any'
 };
+// Distinct filter values for a column.
+function colOptions(col){
+  if(col==='hasRepo') return [{v:'yes',t:'Has repo'},{v:'no',t:'No repo'}];
+  return [...new Set(AGENTS.map(a=>String(a[col]==null?'':a[col])).filter(v=>v!==''))]
+    .sort((a,b)=>a.localeCompare(b)).map(v=>({v,t:v}));
+}
+// Reflect the active-filter state on the header carets.
 function buildFilters(){
-  document.querySelectorAll('.filters select').forEach(sel=>{
-    const col=sel.dataset.col, cur=state.col[col]||'';
-    let opts;
-    if(col==='hasRepo'){
-      opts=[{v:'yes',t:'Has repo'},{v:'no',t:'No repo'}];
-    } else {
-      opts=[...new Set(AGENTS.map(a=>String(a[col]==null?'':a[col])).filter(v=>v!==''))]
-        .sort((a,b)=>a.localeCompare(b)).map(v=>({v,t:v}));
-    }
-    sel.innerHTML = `<option value="">${FILTER_LABELS[col]}</option>` +
-      opts.map(o=>`<option value="${esc(o.v)}"${cur===o.v?' selected':''}>${esc(o.t)}</option>`).join('');
-    sel.classList.toggle('active', !!cur);
+  document.querySelectorAll('.th-flt').forEach(btn=>{
+    btn.classList.toggle('active', !!state.col[btn.dataset.col]);
   });
 }
-document.querySelectorAll('.filters select').forEach(sel=>{
-  sel.addEventListener('click', e=>e.stopPropagation());
-  sel.addEventListener('change', e=>{
-    e.stopPropagation();
-    state.col[sel.dataset.col]=sel.value;
-    sel.classList.toggle('active', !!sel.value);
+// Inline header filter dropdown.
+(function initColMenu(){
+  const menu = document.createElement('div');
+  menu.className = 'flt-menu';
+  menu.hidden = true;
+  document.body.appendChild(menu);
+  let openCol = null;
+
+  function close(){ menu.hidden = true; openCol = null; }
+  function open(btn){
+    const col = btn.dataset.col, cur = state.col[col]||'';
+    const opts = colOptions(col);
+    menu.innerHTML =
+      `<button class="cm-all${cur===''?' sel':''}" data-v=""><span class="cm-check">${cur===''?'\u2713':''}</span>${esc(FILTER_LABELS[col]||'All')}</button>` +
+      opts.map(o=>`<button class="${cur===o.v?'sel':''}" data-v="${esc(o.v)}"><span class="cm-check">${cur===o.v?'\u2713':''}</span>${esc(o.t)}</button>`).join('');
+    menu.hidden = false;
+    openCol = col;
+    const r = btn.getBoundingClientRect();
+    let left = r.left; const mw = menu.offsetWidth;
+    if(left + mw > window.innerWidth - 8) left = window.innerWidth - 8 - mw;
+    menu.style.left = Math.max(8, left) + 'px';
+    menu.style.top = (r.bottom + 5) + 'px';
+  }
+
+  document.querySelectorAll('.th-flt').forEach(btn=>{
+    btn.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(!menu.hidden && openCol===btn.dataset.col){ close(); return; }
+      open(btn);
+    });
+  });
+  menu.addEventListener('click', e=>{
+    const b = e.target.closest('button'); if(!b || !openCol) return;
+    state.col[openCol] = b.dataset.v;
+    close();
+    buildFilters();
     render();
   });
-});
+  document.addEventListener('click', e=>{
+    if(menu.hidden) return;
+    if(e.target.closest('.flt-menu') || e.target.closest('.th-flt')) return;
+    close();
+  });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
+  window.addEventListener('scroll', ()=>{ if(!menu.hidden) close(); }, true);
+})();
 
 function masterRender(){ buildStats(); buildFilters(); render(); }
 
