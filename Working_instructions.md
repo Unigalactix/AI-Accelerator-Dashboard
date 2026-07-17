@@ -129,7 +129,7 @@ SharePoint file is shared with them. An org-wide sharing link = every domain use
 SHAREPOINT_URL=https://netorgft1145305.sharepoint.com/:x:/s/AzureCloudPractice/IQBHSNsPmGiMT5pCk6HOtpVoAZoxrfbNWOo3OLjQlpyaMYg
 
 # The sheet/tab inside the workbook to read
-SHEET_NAME=Accelerator Inventory New
+SHEET_NAME=Accelerator Inventory
 
 # How often the dashboard re-checks for new data (seconds)
 REFRESH_SECONDS=45
@@ -142,7 +142,7 @@ replace `.env` in the cloud:
 | Setting | Purpose |
 |---------|---------|
 | `SHAREPOINT_URL` | Sharing link to the workbook (server-side only). |
-| `SHEET_NAME` | `Accelerator Inventory New` — the tab to parse. |
+| `SHEET_NAME` | `Accelerator Inventory` — the tab to parse. |
 | `REFRESH_SECONDS` | `45`. |
 | `MICROSOFT_PROVIDER_AUTHENTICATION_SECRET` | Easy Auth client secret (managed by Auth config). |
 | `WEBSITE_AUTH_AAD_ALLOWED_TENANTS` | Restricts sign-in to the Quadrant tenant. |
@@ -278,7 +278,7 @@ Deployment has completed successfully
 | Dashboard loads but shows embedded snapshot, not live data | The browser never got `/workbook.xlsx`. Confirm the server is generating `/.env` with `WORKBOOK_URL=/workbook.xlsx`, and that Graph can read the file (check server logs for `[live] error`). |
 | User signed in but sees no data | The SharePoint workbook isn't shared with that user. Adjust the file's sharing (org-wide link vs specific people). |
 | Charts empty / SheetJS error | Offline — the CDN couldn't load SheetJS. Reconnect and refresh. |
-| Wrong / empty table | `SHEET_NAME` doesn't match the workbook tab exactly (currently `Accelerator Inventory New`). |
+| Wrong / empty table | `SHEET_NAME` doesn't match the workbook tab exactly (currently `Accelerator Inventory`). |
 | Changes not visible after deploy | Hard-refresh (Ctrl+F5); the browser cached the old page. |
 | Local page can't read `.env` | You opened it via `file://`. Serve through `node dev-server.js` at `http://localhost:5173/`. |
 
@@ -315,7 +315,7 @@ Tenant:             0eadb77e-42dc-47f8-bbe3-ec2395e0712c  (Quadrant Technologies
 URL:                https://ai-accelerator-dashboard-cyhgc2f3axg3bgau.westus-01.azurewebsites.net
 Runtime:            Linux, Node 22, Plan B1
 Startup:            node dev-server.js
-Sheet:              Accelerator Inventory New
+Sheet:              Accelerator Inventory
 Deploy artifact:    app.zip  (index.html + dev-server.js + package.json)
 Deploy command:     az webapp deploy -g MSSA_DataAgent_POC -n ai-accelerator-dashboard --src-path app.zip --type zip
 ```

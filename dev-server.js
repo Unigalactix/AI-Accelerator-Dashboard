@@ -59,9 +59,42 @@ const shareId = 'u!' + Buffer.from(SHARE_URL, 'utf8').toString('base64')
 //   workbook is read with that user's own @quadranttechnologies.com access.
 // Locally: fall back to your Azure CLI login (cached until near expiry).
 let cliTokenCache = { value: null, exp: 0 };
+// Read the signed-in user's tokens from the Easy Auth token store. Returns the
+// AAD access token plus its expiry, or null if unavailable.
+async function readAuthMe(base, cookie) {
+  try {
+    const r = await fetch(`${base}/.auth/me`, { headers: { Cookie: cookie }, redirect: 'manual' });
+    if (!r.ok) return null;
+    const data = await r.json();
+    const rec = Array.isArray(data)
+      ? (data.find(x => (x.provider_name || '').toLowerCase() === 'aad') || data[0])
+      : data;
+    if (!rec || !rec.access_token) return null;
+    return { at: rec.access_token, exp: rec.expires_on ? new Date(rec.expires_on).getTime() : 0 };
+  } catch (_) { return null; }
+}
 async function getToken(req) {
-  const userTok = req && req.headers && req.headers['x-ms-token-aad-access-token'];
-  if (userTok) return userTok;
+  const h = (req && req.headers) || {};
+  // ---- On Azure App Service (Easy Auth): use the SIGNED-IN USER's token ----
+  if (process.env.WEBSITE_SITE_NAME) {
+    const injected = h['x-ms-token-aad-access-token'];
+    const expOn = h['x-ms-token-aad-expires-on'];
+    const skew = 120000; // refresh 2 min before expiry
+    // Fast path: the injected header token is present and still valid.
+    if (injected && expOn && Date.now() < new Date(expOn).getTime() - skew) return injected;
+    // Otherwise refresh via the token store (needs the caller's auth cookie).
+    const base = 'https://' + (h['x-forwarded-host'] || h.host);
+    const cookie = h.cookie || '';
+    let me = await readAuthMe(base, cookie);
+    if (!me || (me.exp && Date.now() > me.exp - skew)) {
+      try { await fetch(`${base}/.auth/refresh`, { headers: { Cookie: cookie }, redirect: 'manual' }); } catch (_) {}
+      me = await readAuthMe(base, cookie);
+    }
+    if (me && me.at) return me.at;
+    if (injected) return injected; // last resort (may be expired)
+    const e = new Error('no user token available'); e.status = 401; throw e;
+  }
+  // ---- Local dev: fall back to the Azure CLI login ----
   const now = Date.now();
   if (cliTokenCache.value && now < cliTokenCache.exp - 120000) return cliTokenCache.value;
   const out = execFileSync('az', ['account', 'get-access-token', '--resource',
@@ -77,10 +110,10 @@ async function fetchWorkbook(req) {
   const headers = { Authorization: 'Bearer ' + token };
   // metadata (for the change signature) + content
   const metaRes = await fetch(`${GRAPH}/shares/${shareId}/driveItem?$select=lastModifiedDateTime,size`, { headers });
-  if (!metaRes.ok) throw new Error('meta ' + metaRes.status + ' ' + (await metaRes.text()));
+  if (!metaRes.ok) { const err = new Error('meta ' + metaRes.status + ' ' + (await metaRes.text())); err.status = metaRes.status; throw err; }
   const meta = await metaRes.json();
   const contentRes = await fetch(`${GRAPH}/shares/${shareId}/driveItem/content`, { headers });
-  if (!contentRes.ok) throw new Error('content ' + contentRes.status);
+  if (!contentRes.ok) { const err = new Error('content ' + contentRes.status); err.status = contentRes.status; throw err; }
   const buf = Buffer.from(await contentRes.arrayBuffer());
   const etag = `"${meta.lastModifiedDateTime}:${meta.size}"`;
   return { buf, etag, modified: meta.lastModifiedDateTime };
@@ -138,7 +171,14 @@ http.createServer(async (req, res) => {
       console.log(`[live] served workbook (modified ${modified}, ${buf.length} bytes)`);
     } catch (e) {
       console.error('[live] error:', e.message);
-      res.writeHead(502, { 'Content-Type': 'text/plain' }).end('Graph fetch failed: ' + e.message);
+      // 401/403 from Graph means the signed-in user cannot see the file/sheet.
+      // Return a distinct 403 with a link so the client can prompt to request access.
+      if (e.status === 401 || e.status === 403) {
+        res.writeHead(403, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ error: 'forbidden', requestAccessUrl: SHARE_URL }));
+      } else {
+        res.writeHead(502, { 'Content-Type': 'text/plain' }).end('Graph fetch failed: ' + e.message);
+      }
     }
     return;
   }
