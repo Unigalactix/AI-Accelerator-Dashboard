@@ -18,6 +18,7 @@ sheet-dump.json
 
 # Deployment package (generated for App Service zip deploy)
 app.zip
+AI_Accelerator_Dashboard_Files.zip
 
 # OS / editor cruft
 .DS_Store
