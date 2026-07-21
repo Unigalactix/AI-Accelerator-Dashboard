@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>AI Accelerator Portfolio — Leadership View</title>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -352,6 +353,46 @@
     .cols2,.cols3{grid-template-columns:1fr;}
     h1{font-size:30px;}
     .hide-sm{display:none;}
+  }
+
+  /* ===================================================================
+     DARK THEME — automatic, follows the device / OS color-scheme setting.
+     When the user's system is set to dark mode, the dashboard renders dark.
+     Chart & bar colors are driven by the accent variables below, which the
+     script reads via getComputedStyle at load, so they adapt automatically.
+     =================================================================== */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink:#e9e7f4; --ink2:#c9c3e2; --slate:#a49fbb; --mist:#7f7a97;
+      --paper:#16131f; --card:#201b2e; --line:#332c46;
+      --teal:#b98cf3; --teal-soft:#33244d;
+      --amber:#e0b45a; --amber-soft:#3a2f18;
+      --rose:#f0729a; --rose-soft:#3d1f2c;
+      --violet:#a888f3; --violet-soft:#2c2447;
+      --shadow:0 1px 2px rgba(0,0,0,.5), 0 6px 18px rgba(0,0,0,.55);
+      --shadow-h:0 2px 6px rgba(0,0,0,.55), 0 16px 36px rgba(0,0,0,.6);
+      --card-border:1px solid rgba(255,255,255,.08);
+    }
+    body {
+      background:linear-gradient(120deg,#0f0d19 0%,#161226 26%,#1c1430 52%,#141024 78%,#100e1f 100%);
+    }
+    /* Hard-coded light surfaces re-tinted for dark backgrounds */
+    .track, .meter .track2 { background:#2c2540; }
+    tbody tr:hover { background:#282139; }
+    #tbl tbody tr:hover td, #tbl tbody tr:hover td:first-child { background:#282139; }
+    .sec-none { background:#2c2540; color:var(--mist); }
+    /* Components that fill with the (now light) --ink need a dark chip surface */
+    .chip.on { background:#4a3785; color:#fff; border-color:#4a3785; }
+    .th-flt.active { background:#4a3785; color:#fff; }
+    .flt-menu button.sel { background:#4a3785; color:#fff; }
+    .tool-btn.active { background:#4a3785; color:#fff; border-color:#4a3785; }
+    #nameTip { background:#2c2540; color:#f3f1fa; }
+    .drawer-close:hover { background:#4a3785; color:#fff; border-color:#4a3785; }
+    .meter .f2 { background:var(--teal); }
+    .toolbar input:focus { box-shadow:0 0 0 3px rgba(185,140,243,.22); }
+    .bar-row.clickable:hover { background:rgba(185,140,243,.12); }
+    .access-btn.primary { background:#6d3fc0; }
+    .access-btn.primary:hover { background:#7d4dd6; }
   }
 </style>
 </head>
