@@ -1356,6 +1356,25 @@ function applyData(buf){
   if(data.length){ AGENTS = enrich(data); dataReady = true; masterRender(); markSync(); return true; }
   return false;
 }
+// --- Local last-good cache -------------------------------------------------
+// Persist the parsed rows in THIS browser so a refresh repaints real data
+// instantly instead of blank "--" placeholders while the live workbook is
+// (re)fetched in the background. No secrets are involved (rows only).
+const CACHE_KEY = 'aiDash.cache.v1';
+function saveCache(){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ sig: lastSig, ts: Date.now(), agents: AGENTS })); }catch(_){}
+}
+function hydrateFromCache(){
+  try{
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+    if(!c || !Array.isArray(c.agents) || !c.agents.length) return false;
+    AGENTS = enrich(c.agents); dataReady = true; lastSig = c.sig || null;
+    masterRender();
+    setStatus('Cached \u00b7 refreshing\u2026', 'idle');
+    if(c.ts) document.getElementById('dsTime').textContent = 'Last sync ' + new Date(c.ts).toLocaleTimeString();
+    return true;
+  }catch(_){ return false; }
+}
 
 // Load the workbook snapshot published next to this page by the GitHub Action.
 // The Action authenticates to SharePoint server-side and writes SNAPSHOT_FILE,
@@ -1388,7 +1407,16 @@ function hideAccessModal(){
 })();
 async function loadSnapshot(){
   try{
-    const res = await fetch(workbookSrc(), {cache:'no-store'});
+    // Conditional first fetch: if we already painted cached rows, ask the
+    // server to answer 304 when the workbook is unchanged — then we keep the
+    // instant cached render and skip a full download + re-parse.
+    const res = await fetch(workbookSrc(), {cache:'no-store', headers: lastSig ? {'If-None-Match': lastSig} : {}});
+    if(res.status===304){
+      setStatus(WORKBOOK_URL ? 'Live \u00b7 SharePoint' : 'Live \u00b7 workbook snapshot', 'ok');
+      markSync();
+      startSnapshotPoll();
+      return true;
+    }
     if(!res.ok){
       if(res.status===403 && WORKBOOK_URL){
         let info={}; try{ info = await res.json(); }catch(_){}
@@ -1404,6 +1432,7 @@ async function loadSnapshot(){
       lastSig = res.headers.get('etag') || res.headers.get('last-modified') || String(buf.byteLength);
       setStatus(WORKBOOK_URL ? 'Live \u00b7 SharePoint' : 'Live \u00b7 workbook snapshot', 'ok');
       markSync();
+      saveCache();
       startSnapshotPoll();
       return true;
     }
@@ -1415,7 +1444,10 @@ function startSnapshotPoll(){
   clearInterval(pollTimer);
   pollTimer = setInterval(async ()=>{
     try{
-      const res = await fetch(workbookSrc(), {cache:'no-store'});
+      // Conditional poll: send our last signature so the server can answer 304
+      // (no download, no re-parse) whenever the workbook hasn't changed.
+      const res = await fetch(workbookSrc(), {cache:'no-store', headers: lastSig ? {'If-None-Match': lastSig} : {}});
+      if(res.status===304) return; // unchanged — nothing to do
       if(!res.ok){
         if(res.status===403 && WORKBOOK_URL){
           let info={}; try{ info = await res.json(); }catch(_){}
@@ -1427,7 +1459,7 @@ function startSnapshotPoll(){
       const buf = await res.arrayBuffer();
       if(!isXlsx(buf)) return;
       const sig = res.headers.get('etag') || res.headers.get('last-modified') || String(buf.byteLength);
-      if(sig!==lastSig && applyData(buf)){ lastSig=sig; markSync(); }
+      if(sig!==lastSig && applyData(buf)){ lastSig=sig; markSync(); saveCache(); }
     }catch(e){}
   }, REFRESH_SECONDS*1000);
 }
@@ -1435,13 +1467,16 @@ function startSnapshotPoll(){
 function initDataSource(){
   const btn = document.getElementById('dsSignin');
   if(btn) btn.style.display='none';
-  setStatus('Connecting to live data\u2026', 'idle');
+  if(!dataReady) setStatus('Connecting to live data\u2026', 'idle');
   loadSnapshot().then(ok=>{
-    if(!ok && !accessModalShown) setStatus('No data connected', 'idle');
+    if(!ok && !accessModalShown) setStatus(dataReady ? 'Offline \u00b7 showing cached' : 'No data connected', 'idle');
   });
 }
 
 masterRender();
+// Paint last-good data instantly (survives refreshes) so the user never waits
+// on empty placeholders; live data then refreshes in the background.
+hydrateFromCache();
 loadEnv().then(initDataSource);
 </script>
 </body>
