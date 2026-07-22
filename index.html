@@ -78,7 +78,7 @@
   }
   .kpi { background:var(--card); padding:18px 18px 20px; border-radius:var(--radius); border:var(--card-border); box-shadow:var(--shadow); }
   .kpi .n { font-family:'Helvetica Neue',Arial,sans-serif; font-size:34px; line-height:1; color:var(--ink); font-weight:800; letter-spacing:-.6px; }
-  .kpi .n small { font-size:15px; color:var(--mist); font-weight:400; }
+  .kpi .n small { font-size:15px; color:var(--mist); font-weight:400; vertical-align:baseline; margin-left:1px; }
   .kpi .l { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--slate); margin-top:8px; }
   .kpi .sub { font-size:11.5px; color:var(--mist); margin-top:3px; }
   .kpi.accent-teal { border-top:3px solid var(--teal); }
@@ -86,6 +86,7 @@
   .kpi.accent-rose { border-top:3px solid var(--rose); }
   .kpi.accent-violet { border-top:3px solid var(--violet); }
   .kpi.accent-ink { border-top:3px solid var(--ink); }
+  .kpi.is-zero { border-top-color:var(--line); }
   /* Clickable / drill-down KPI cards */
   .kpi.drill { cursor:pointer; position:relative; transition:transform .12s ease, box-shadow .12s ease, background .12s ease; }
   .kpi.drill:hover { background:#ffffff; box-shadow:var(--shadow-h); transform:translateY(-3px); z-index:2; }
@@ -95,6 +96,22 @@
     text-transform:uppercase; color:var(--mist); opacity:0; transition:opacity .12s ease;
   }
   .kpi.drill:hover .drill-hint { opacity:1; }
+  /* Hover tooltip popup — "Click for more info" */
+  .kpi.drill::after {
+    content:"Click for more info";
+    position:absolute; left:50%; bottom:calc(100% + 8px); transform:translateX(-50%) translateY(4px);
+    background:var(--ink); color:#fff; font-size:10.5px; letter-spacing:.04em; font-weight:600;
+    text-transform:none; white-space:nowrap; padding:6px 10px; border-radius:6px;
+    box-shadow:0 6px 18px rgba(26,31,53,.28); opacity:0; pointer-events:none; z-index:5;
+    transition:opacity .14s ease, transform .14s ease;
+  }
+  .kpi.drill::before {
+    content:""; position:absolute; left:50%; bottom:calc(100% + 3px); transform:translateX(-50%) translateY(4px);
+    border:5px solid transparent; border-top-color:var(--ink); opacity:0; pointer-events:none; z-index:5;
+    transition:opacity .14s ease, transform .14s ease;
+  }
+  .kpi.drill:hover::after, .kpi.drill:focus-visible::after { opacity:1; transform:translateX(-50%) translateY(0); }
+  .kpi.drill:hover::before, .kpi.drill:focus-visible::before { opacity:1; transform:translateX(-50%) translateY(0); }
 
   /* Section head */
   .sec-head { display:flex; align-items:baseline; gap:14px; margin:16px 0 14px; }
@@ -105,6 +122,24 @@
     color:var(--rose); border:1px solid var(--rose); border-radius:4px; padding:4px 12px;
     cursor:pointer; user-select:none; white-space:nowrap; background:var(--card); }
   .sec-reset:hover { background:var(--rose); color:#fff; }
+
+  /* Readiness & Governance — collapsible summary bar */
+  .signal-bar { margin:14px 0 22px; }
+  .signal-toggle { width:100%; display:flex; align-items:center; gap:16px;
+    background:var(--card); border:var(--card-border); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:9px 20px; cursor:pointer; font-family:inherit;
+    text-align:left; transition:box-shadow .14s ease, transform .12s ease; }
+  .signal-toggle:hover { box-shadow:var(--shadow-h); transform:translateY(-1px); }
+  .signal-toggle:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+  .signal-title { font-size:15px; letter-spacing:.14em; text-transform:uppercase; font-weight:700; color:var(--ink); white-space:nowrap; }
+  .signal-rule { flex:1; height:1px; background:var(--line); }
+  .signal-hint { font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--mist); opacity:0; transition:opacity .14s ease; white-space:nowrap; }
+  .signal-toggle:hover .signal-hint { opacity:1; }
+  .signal-caret { font-size:11px; color:var(--slate); transition:transform .2s ease, background .14s ease, color .14s ease; flex:none; width:22px; height:22px; border-radius:50%; background:var(--paper); display:inline-flex; align-items:center; justify-content:center; }
+  .signal-toggle:hover .signal-caret { background:rgba(122,47,212,.12); color:var(--violet); }
+  .signal-toggle[aria-expanded="true"] .signal-caret { transform:rotate(180deg); }
+  .signal-body { padding-top:18px; }
+  .signal-body[hidden] { display:none; }
 
   .cols2 { display:grid; grid-template-columns:1fr 1fr; gap:24px; }
   .cols3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; }
@@ -123,6 +158,18 @@
   .dyn-select:focus { outline:1px solid var(--teal); }
 
   /* Horizontal bars */
+  .bars-wrap { position:relative; }
+  /* Show ~3 bar rows, scroll for the rest */
+  .bars { height:154px; overflow-y:auto; overflow-x:hidden; margin:0 -5px; padding:0 5px; scrollbar-width:none; }
+  .bars::-webkit-scrollbar { width:0; }
+  .bars:hover { scrollbar-width:thin; }
+  .bars:hover::-webkit-scrollbar { width:6px; }
+  .bars::-webkit-scrollbar-thumb { background:var(--line); border-radius:3px; }
+  .bars-hint { position:absolute; left:0; right:0; bottom:0; text-align:center;
+    font-size:9.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--mist);
+    background:linear-gradient(to top, var(--card) 32%, rgba(255,255,255,0));
+    padding:18px 0 2px; opacity:0; pointer-events:none; transition:opacity .14s ease; }
+  .bars-wrap.has-more:hover .bars-hint { opacity:1; }
   .bar-row { margin-bottom:13px; }
   .bar-row.clickable { cursor:pointer; padding:3px 5px; margin-left:-5px; margin-right:-5px; border-radius:5px; transition:background .12s; }
   .bar-row.clickable:hover { background:rgba(122,47,212,.08); }
@@ -145,7 +192,7 @@
   /* Table */
   .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 14px; }
   .toolbar input {
-    flex:1; min-width:200px; padding:10px 14px; border:1px solid var(--line); border-radius:9px;
+    flex:1; min-width:150px; padding:10px 14px; border:1px solid var(--line); border-radius:9px;
     background:var(--card); font-size:13px; color:var(--ink); font-family:inherit;
     box-shadow:var(--shadow);
   }
@@ -158,6 +205,10 @@
   .chip.on { background:var(--ink); color:#fff; border-color:var(--ink); }
   .chip-clear { color:var(--rose); border-color:var(--rose); }
   .chip-clear:hover { background:var(--rose); color:#fff; }
+  /* Domain shortcut chips flow inline with the other toolbar chips */
+  .domain-chips { display:contents; }
+  .domain-chip { max-width:140px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .domain-chip.on { background:var(--violet); border-color:var(--violet); color:#fff; }
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
   thead th {
     text-align:left; padding:10px 10px; border-bottom:2px solid var(--ink);
@@ -232,6 +283,7 @@
   #tbl th:first-child, #tbl td:first-child { position:sticky; left:0; background:var(--paper); }
   #tbl thead th:first-child { z-index:5; }
   #tbl tbody td:first-child { z-index:1; box-shadow:inset -1px 0 0 var(--line); }
+  #tbl tbody tr:nth-child(even) td, #tbl tbody tr:nth-child(even) td:first-child { background:#faf9f6; }
   #tbl tbody tr:hover td, #tbl tbody tr:hover td:first-child { background:#faf8f3; }
   /* Compact density */
   #tbl.compact thead th { padding:6px 8px; }
@@ -246,6 +298,8 @@
   }
   .tool-btn:hover { border-color:var(--ink); color:var(--ink); }
   .tool-btn.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+  .tool-btn.icon-btn { padding:6px 9px; display:inline-flex; align-items:center; justify-content:center; line-height:0; }
+  .tool-btn.icon-btn svg { display:block; }
   .col-menu-wrap { position:relative; }
   .col-menu {
     position:absolute; right:0; top:calc(100% + 6px); background:var(--card);
@@ -266,7 +320,9 @@
   }
   .col-menu .col-menu-foot button:hover { border-color:var(--ink); color:var(--ink); }
 
-  footer { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); font-size:11px; color:var(--mist); }
+  footer { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); font-size:11px; color:var(--mist); display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+  footer b { color:var(--slate); font-weight:600; }
+  footer .foot-sep { opacity:.5; }
   /* Live data-source bar */
   .datasource {
     display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -376,41 +432,49 @@
     <span class="ds-time" id="dsTime"></span>
   </div>
 
+  <div class="signal-bar">
+    <button class="signal-toggle" id="signalToggle" type="button" aria-expanded="false" aria-controls="signalBody" title="Click to expand readiness &amp; governance signals">
+      <span class="signal-title">Readiness &amp; Governance Signals</span>
+      <span class="signal-rule"></span>
+      <span class="signal-hint">Click here for more info</span>
+      <span class="signal-caret" aria-hidden="true">&#9662;</span>
+    </button>
+    <div class="signal-body" id="signalBody" hidden>
+      <div class="cols2">
+        <div class="panel">
+          <h3>Where the portfolio needs attention</h3>
+          <div id="flags"></div>
+        </div>
+        <div class="panel">
+          <h3>Maturity distribution</h3>
+          <div id="matBars"></div>
+          <p style="font-size:11.5px;color:var(--mist);margin-top:14px;line-height:1.5;">
+            Maturity is recorded for only a fraction of assets today. Filling this field is the single highest-leverage
+            data fix &mdash; it is what lets leadership separate demo-stage work from launch-ready assets.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="kpis" id="kpis"></div>
 
   <div class="sec-head"><span class="num">i.</span><h2>Portfolio Composition</h2><span class="rule"></span><span class="sec-reset" id="resetComp" role="button" tabindex="0" title="Reset all selections">Reset</span></div>
   <div class="cols3">
-    <div class="panel"><h3>By Business Unit</h3><div id="buBars"></div></div>
-    <div class="panel"><h3>By Domain</h3><div id="domBars"></div></div>
-    <div class="panel"><h3 class="dyn-h3">By <select id="dynGroup" class="dyn-select" aria-label="Group third chart by"></select></h3><div id="typeBars"></div></div>
+    <div class="panel"><h3>By Business Unit</h3><div class="bars-wrap"><div id="buBars" class="bars"></div><div class="bars-hint">Scroll for more &darr;</div></div></div>
+    <div class="panel"><h3>By Domain</h3><div class="bars-wrap"><div id="domBars" class="bars"></div><div class="bars-hint">Scroll for more &darr;</div></div></div>
+    <div class="panel"><h3 class="dyn-h3">By <select id="dynGroup" class="dyn-select" aria-label="Group third chart by"></select></h3><div class="bars-wrap"><div id="typeBars" class="bars"></div><div class="bars-hint">Scroll for more &darr;</div></div></div>
   </div>
 
-  <div class="sec-head"><span class="num">ii.</span><h2>Readiness &amp; Governance Signals</h2><span class="rule"></span></div>
-  <div class="cols2">
-    <div class="panel">
-      <h3>Where the portfolio needs attention</h3>
-      <div id="flags"></div>
-    </div>
-    <div class="panel">
-      <h3>Maturity distribution</h3>
-      <div id="matBars"></div>
-      <p style="font-size:11.5px;color:var(--mist);margin-top:14px;line-height:1.5;">
-        Maturity is recorded for only a fraction of assets today. Filling this field is the single highest-leverage
-        data fix &mdash; it is what lets leadership separate demo-stage work from launch-ready assets.
-      </p>
-    </div>
-  </div>
-
-  <div class="sec-head"><span class="num">iii.</span><h2>Asset Register</h2><span class="rule"></span></div>
+  <div class="sec-head"><span class="num">ii.</span><h2>Asset Register</h2><span class="rule"></span></div>
   <div class="toolbar">
     <input id="search" placeholder="Search by name, owner, domain&hellip;">
-    <span class="chip on" data-f="all">All</span>
-    <span class="chip" data-f="AI Agent">Agents</span>
-    <span class="chip" data-f="Q-Suite">Q-Suite</span>
-    <span class="chip" data-f="incomplete">Needs data &lt;50%</span>
+    <span class="chip" id="typeCycle" role="button" tabindex="0" title="Click to cycle asset-type filter">All Types</span>
+    <span class="chip" id="incompleteChip" role="button" tabindex="0">Needs data &lt;50%</span>
+    <span class="domain-chips" id="domainChips"></span>
     <span class="chip chip-clear" id="clearFilters" role="button" tabindex="0">Clear</span>
     <div class="tbl-tools">
-      <button class="tool-btn" id="densityBtn" type="button" aria-pressed="false">Compact</button>
+      <button class="tool-btn icon-btn" id="densityBtn" type="button" aria-pressed="false" title="Compact rows" aria-label="Switch to compact rows"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor"/><rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor"/><rect x="2" y="11" width="12" height="2" rx="1" fill="currentColor"/></svg></button>
       <div class="col-menu-wrap">
         <button class="tool-btn" id="colBtn" type="button" aria-haspopup="true" aria-expanded="false">Columns &#9662;</button>
         <div class="col-menu" id="colMenu" hidden role="menu"></div>
@@ -422,10 +486,10 @@
     <thead>
       <tr>
       <th data-s="name" class="c-name">Asset</th>
+      <th data-s="domain" class="c-domain"><span class="th-h"><span class="th-t">Domain</span><button type="button" class="th-flt" data-col="domain" aria-label="Filter Domain">&#9660;</button></span></th>
       <th data-s="type" class="c-type"><span class="th-h"><span class="th-t">Type</span><button type="button" class="th-flt" data-col="type" aria-label="Filter Type">&#9660;</button></span></th>
       <th data-s="bu" class="hide-sm c-bu"><span class="th-h"><span class="th-t">BU</span><button type="button" class="th-flt" data-col="bu" aria-label="Filter BU">&#9660;</button></span></th>
       <th data-s="owner" class="hide-sm c-owner"><span class="th-h"><span class="th-t">Owner</span><button type="button" class="th-flt" data-col="owner" aria-label="Filter Owner">&#9660;</button></span></th>
-      <th data-s="domain" class="hide-sm c-domain"><span class="th-h"><span class="th-t">Domain</span><button type="button" class="th-flt" data-col="domain" aria-label="Filter Domain">&#9660;</button></span></th>
       <th data-s="maturity" class="c-maturity"><span class="th-h"><span class="th-t">Maturity</span><button type="button" class="th-flt" data-col="maturity" aria-label="Filter Maturity">&#9660;</button></span></th>
       <th data-s="status" class="c-status"><span class="th-h"><span class="th-t">Status</span><button type="button" class="th-flt" data-col="status" aria-label="Filter Status">&#9660;</button></span></th>
       <th data-s="security" class="hide-sm c-security"><span class="th-h"><span class="th-t">Security</span><button type="button" class="th-flt" data-col="security" aria-label="Filter Security">&#9660;</button></span></th>
@@ -439,10 +503,11 @@
   </div>
 
   <footer>
-    Generated from <b>AI_Accelerator_Agent_Inventory_Template.xlsx</b> &middot; Asset Register sheet (62 rows).
-    Categories (domain, type, maturity, status) were normalized from free-text entries for this view.
-    &ldquo;Data&rdquo; = completeness across 8 leadership-critical fields (owner, status, maturity, storage, domain,
-    security review, savings, documentation).
+    <span>AI Accelerator Portfolio Dashboard</span>
+    <span class="foot-sep">&middot;</span>
+    <span>Version <b id="appVersion">1.0.0</b></span>
+    <span class="foot-sep">&middot;</span>
+    <span>Last updated <b id="lastUpdated">&mdash;</b></span>
   </footer>
 </div>
 
@@ -494,6 +559,7 @@ function enrich(arr){
   return arr;
 }
 document.getElementById('today').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+document.getElementById('lastUpdated').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
 document.getElementById('totalCount').textContent = AGENTS.length;
 
 const count = (arr,key,val) => arr.filter(a=>a[key]===val).length;
@@ -515,11 +581,14 @@ function groupBars(el, key, colorFn, limit){
   if(limit) entries=entries.slice(0,limit);
   const max=Math.max(1,...entries.map(e=>e[1]));
   const activeVal = state.col[key]||'';
-  document.getElementById(el).innerHTML = entries.map(([k,v])=>`
+  const container = document.getElementById(el);
+  container.innerHTML = entries.map(([k,v])=>`
     <div class="bar-row clickable${activeVal===k?' active':''}" role="button" tabindex="0" data-k="${esc(key)}" data-v="${esc(k)}" aria-pressed="${activeVal===k?'true':'false'}">
       <div class="lab"><span>${esc(k)}</span><b>${v}</b></div>
       <div class="track"><div class="fill" style="width:${pct(v,max)}%;background:${colorFn(k)}"></div></div>
     </div>`).join('');
+  const wrap = container.closest('.bars-wrap');
+  if(wrap) wrap.classList.toggle('has-more', container.scrollHeight > container.clientHeight + 1);
 }
 
 // KPIs + composition + governance flags
@@ -557,12 +626,12 @@ function buildStats(){
     {n:avgComplete, suffix:'%', l:'Avg Data Completeness', sub:'across governance fields', cls:'accent-amber', drill:'complete'},
   ];
   document.getElementById('kpis').innerHTML = kpis.map(k=>
-    `<div class="kpi ${k.cls} drill" data-drill="${k.drill}" role="button" tabindex="0" aria-label="${k.l} — view details"><div class="n">${k.n}${k.suffix?'<small>'+k.suffix+'</small>':''}</div><div class="l">${k.l}</div><div class="sub">${k.sub}</div><span class="drill-hint">View &rarr;</span></div>`
+    `<div class="kpi ${k.cls} drill${k.n===0?' is-zero':''}" data-drill="${k.drill}" role="button" tabindex="0" aria-label="${k.l} — view details"><div class="n">${k.n}${k.suffix?'<small>'+k.suffix+'</small>':''}</div><div class="l">${k.l}</div><div class="sub">${k.sub}</div><span class="drill-hint">View &rarr;</span></div>`
   ).join('');
 
   groupBars('buBars','bu', k=> k==='AI CoE'?teal : k==='Vamshi BU'?violet : mist);
-  groupBars('domBars','domain', k=> k==='Uncategorized'?mist:teal, 8);
-  groupBars('typeBars', dynGroupKey, dynColor, 10);
+  groupBars('domBars','domain', k=> k==='Uncategorized'?mist:teal);
+  groupBars('typeBars', dynGroupKey, dynColor);
   groupBars('matBars','maturity', k=> (k==='Unspecified'||k==='Other')?mist : (k==='Beta'||k==='Stable'||k==='Mature / Battle-tested')?teal : amber);
 
   const noOwner = view.filter(a=>!a.owner).length;
@@ -584,14 +653,13 @@ function buildStats(){
 }
 
 // Table
-let state={f:'all', q:'', sort:'complete', dir:1, col:{}};
+let state={q:'', sort:'complete', dir:1, col:{}, incomplete:false};
 
 // Shared filter: returns AGENTS matching all active filters (chip, header selects, search).
 // Pass exceptKey to ignore that column's own filter (used so each composition
 // panel keeps showing all of its options even while it drives the filter).
 function passFilters(a, exceptKey){
-  if(state.f==='incomplete'){ if(a.complete>=50) return false; }
-  else if(state.f!=='all' && exceptKey!=='type'){ if(a.type!==state.f) return false; }
+  if(state.incomplete && a.complete>=50) return false;
   for(const col in state.col){
     if(col===exceptKey) continue;
     const val=state.col[col]; if(!val) continue;
@@ -650,10 +718,10 @@ function render(){
   document.getElementById('tbody').innerHTML = rows.map(a=>`
     <tr>
       <td class="c-name"><div class="aname" data-desc="${esc(a.desc||'')}" data-name="${esc(a.name)}">${esc(a.name)}</div><div class="aid">${esc(a.id)}</div></td>
+      <td class="c-domain">${a.domain==='Uncategorized'?'<span style="color:var(--mist)">Uncategorized</span>':esc(a.domain)}</td>
       <td class="c-type">${typeTag(a.type)}</td>
       <td class="hide-sm c-bu">${esc(a.bu)}</td>
       <td class="hide-sm c-owner">${a.owner?esc(a.owner):'<span class="miss">&mdash;</span>'}</td>
-      <td class="hide-sm c-domain">${a.domain==='Uncategorized'?'<span style="color:var(--mist)">Uncategorized</span>':esc(a.domain)}</td>
       <td class="c-maturity" style="white-space:nowrap">${dim(a.maturity,'Unspecified')}</td>
       <td class="c-status" style="white-space:nowrap">${statusDot(a.status)}</td>
       <td class="hide-sm c-security">${secBadge(a.security)}</td>
@@ -711,8 +779,8 @@ window.addEventListener('resize', syncHeadOffset);
 
 // Columns that can be shown/hidden (Asset stays pinned & always visible).
 const TABLE_COLUMNS = [
-  {key:'type', label:'Type'}, {key:'bu', label:'BU'}, {key:'owner', label:'Owner'},
-  {key:'domain', label:'Domain'}, {key:'maturity', label:'Maturity'}, {key:'status', label:'Status'},
+  {key:'domain', label:'Domain'}, {key:'type', label:'Type'}, {key:'bu', label:'BU'}, {key:'owner', label:'Owner'},
+  {key:'maturity', label:'Maturity'}, {key:'status', label:'Status'},
   {key:'security', label:'Security'}, {key:'hosting', label:'Hosting'}, {key:'repo', label:'Repo'},
   {key:'complete', label:'Data'},
 ];
@@ -735,11 +803,16 @@ function buildColMenu(){
   const colMenu = document.getElementById('colMenu');
   const tbl = document.getElementById('tbl');
 
+  const ICON_COMFY = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="3" width="12" height="2" rx="1" fill="currentColor"/><rect x="2" y="7" width="12" height="2" rx="1" fill="currentColor"/><rect x="2" y="11" width="12" height="2" rx="1" fill="currentColor"/></svg>';
+  const ICON_COMPACT = '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="1.6" rx=".8" fill="currentColor"/><rect x="2" y="5" width="12" height="1.6" rx=".8" fill="currentColor"/><rect x="2" y="8" width="12" height="1.6" rx=".8" fill="currentColor"/><rect x="2" y="11" width="12" height="1.6" rx=".8" fill="currentColor"/></svg>';
+
   densityBtn.addEventListener('click', ()=>{
     const compact = tbl.classList.toggle('compact');
     densityBtn.classList.toggle('active', compact);
     densityBtn.setAttribute('aria-pressed', compact);
-    densityBtn.textContent = compact ? 'Comfortable' : 'Compact';
+    densityBtn.title = compact ? 'Comfortable rows' : 'Compact rows';
+    densityBtn.setAttribute('aria-label', compact ? 'Switch to comfortable rows' : 'Switch to compact rows');
+    densityBtn.innerHTML = compact ? ICON_COMPACT : ICON_COMFY;
     syncHeadOffset();
   });
 
@@ -765,14 +838,72 @@ function buildColMenu(){
   document.addEventListener('click', ()=>{ if(!colMenu.hidden){ colMenu.hidden=true; colBtn.setAttribute('aria-expanded', false); } });
 })();
 
-document.querySelectorAll('.chip[data-f]').forEach(c=>c.addEventListener('click',()=>{
-  document.querySelectorAll('.chip[data-f]').forEach(x=>x.classList.remove('on'));
-  c.classList.add('on'); state.f=c.dataset.f; render();
-}));
+/* =====================================================================
+   TOOLBAR QUICK FILTERS — multi-purpose type-cycle button, "needs data"
+   toggle, and up-to-3 domain shortcut chips (most common domains).
+   All feed the same state.col / state.incomplete used by the header
+   carets and composition panels, so every column stays in sync.
+   ===================================================================== */
+const TYPE_LABELS = { 'AI Agent':'Agents', 'Q-Suite':'Q-Suite' };
+function typeCycleList(){
+  const all = [...new Set(AGENTS.map(a=>a.type).filter(Boolean))];
+  const head = ['AI Agent','Q-Suite'].filter(t=>all.includes(t));
+  const rest = all.filter(t=>!head.includes(t)).sort((a,b)=>a.localeCompare(b));
+  return [null, ...head, ...rest];        // null = All Types
+}
+function cycleType(){
+  const list = typeCycleList();
+  let idx = list.indexOf(state.col.type || null);
+  if(idx === -1) idx = 0;
+  const next = list[(idx+1) % list.length];
+  if(next) state.col.type = next; else delete state.col.type;
+  masterRender();
+}
+function updateTypeCycleBtn(){
+  const btn = document.getElementById('typeCycle');
+  if(!btn) return;
+  const t = state.col.type || null;
+  btn.textContent = t ? (TYPE_LABELS[t] || t) : 'All Types';
+  btn.classList.toggle('on', !!t);
+}
+function buildDomainChips(){
+  const wrap = document.getElementById('domainChips');
+  if(!wrap) return;
+  const counts = {};
+  AGENTS.forEach(a=>{
+    const d = a.domain;
+    if(!d || d==='Uncategorized') return;
+    counts[d] = (counts[d]||0) + 1;
+  });
+  const top = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);
+  wrap.innerHTML = top.map(d=>
+    `<span class="chip domain-chip${state.col.domain===d?' on':''}" data-domain="${esc(d)}" role="button" tabindex="0" title="Filter by domain: ${esc(d)}">${esc(d)}</span>`
+  ).join('');
+}
+function updateToolbarState(){
+  updateTypeCycleBtn();
+  const inc = document.getElementById('incompleteChip');
+  if(inc) inc.classList.toggle('on', !!state.incomplete);
+  buildDomainChips();
+}
+(function initQuickFilters(){
+  const typeBtn = document.getElementById('typeCycle');
+  typeBtn.addEventListener('click', cycleType);
+  typeBtn.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); cycleType(); } });
+
+  const inc = document.getElementById('incompleteChip');
+  const toggleInc = ()=>{ state.incomplete = !state.incomplete; masterRender(); };
+  inc.addEventListener('click', toggleInc);
+  inc.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggleInc(); } });
+
+  const wrap = document.getElementById('domainChips');
+  const pickDomain = el=>{ if(el && el.dataset.domain) toggleSeg('domain', el.dataset.domain); };
+  wrap.addEventListener('click', e=>pickDomain(e.target.closest('[data-domain]')));
+  wrap.addEventListener('keydown', e=>{ if(e.key==='Enter'||e.key===' '){ const el=e.target.closest('[data-domain]'); if(el){ e.preventDefault(); pickDomain(el); } } });
+})();
 function clearAllFilters(){
-  state.f='all'; state.q=''; state.col={};
+  state.q=''; state.col={}; state.incomplete=false;
   const box=document.getElementById('search'); if(box) box.value='';
-  document.querySelectorAll('.chip[data-f]').forEach(x=>x.classList.toggle('on', x.dataset.f==='all'));
   masterRender();
 }
 document.getElementById('clearFilters').addEventListener('click', clearAllFilters);
@@ -783,6 +914,19 @@ document.getElementById('resetComp').addEventListener('click', clearAllFilters);
 document.getElementById('resetComp').addEventListener('keydown', e=>{
   if(e.key==='Enter'||e.key===' '){ e.preventDefault(); clearAllFilters(); }
 });
+
+// Collapsible "Readiness & Governance Signals" summary bar
+(function initSignalBar(){
+  const btn = document.getElementById('signalToggle');
+  const body = document.getElementById('signalBody');
+  if(!btn || !body) return;
+  btn.addEventListener('click', ()=>{
+    const open = btn.getAttribute('aria-expanded')==='true';
+    btn.setAttribute('aria-expanded', String(!open));
+    body.hidden = open;
+    btn.title = open ? 'Click to expand readiness & governance signals' : 'Click to collapse';
+  });
+})();
 
 // Third composition card — user-selectable grouping column
 const DYN_GROUPS = [
@@ -874,10 +1018,10 @@ function buildFilters(){
     close();
   });
   document.addEventListener('keydown', e=>{ if(e.key==='Escape') close(); });
-  window.addEventListener('scroll', ()=>{ if(!menu.hidden) close(); }, true);
+  window.addEventListener('scroll', e=>{ if(!menu.hidden && !(e.target instanceof Node && menu.contains(e.target))) close(); }, true);
 })();
 
-function masterRender(){ buildStats(); buildFilters(); render(); }
+function masterRender(){ buildStats(); buildFilters(); updateToolbarState(); render(); }
 
 // Clicking (or keyboard-activating) a composition bar filters the whole dashboard.
 document.addEventListener('click', e=>{
