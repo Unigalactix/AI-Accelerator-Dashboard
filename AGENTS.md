@@ -93,7 +93,65 @@ unless you have explicitly been asked to change server logic. Never overwrite th
 
 ---
 
-## 6. Azure login & permissions
+## 6. Working Instructions document format (`.docx`) — MANDATORY layout
+
+The Word deliverable `AI_Accelerator_Dashboard_Working_Instructions.docx` (source:
+`Working_instructions.md`) MUST always follow this three-part page layout:
+
+- **Page 1 — Title page** with basic details: title `AI Accelerator Dashboard`, subtitle
+  `Working Instructions — Operator Guide`, author `Quadrant Technologies`, and the date.
+- **Page 2 — Contents / index** (an auto-generated, updatable Word Table of Contents).
+- **Page 3 onward — the guide content** (starts with the document's H1 and body).
+
+Rules:
+- Edit **`Working_instructions.md`** for content — never hand-edit the `.docx` body. Regenerate
+  the `.docx` from the markdown so the two stay in sync.
+- The title-page details come from a pandoc YAML metadata block prepended at build time (title,
+  subtitle, author, date) — NOT from the markdown body. Keep the body's own H1 as the first
+  content heading on page 3.
+- Always keep the title page (p1), the TOC (p2), and content (p3+) on separate pages via the
+  forced page breaks below.
+
+### Build procedure (regenerate the `.docx`)
+Requires `pandoc` and Word (COM) — both are present on this machine.
+```powershell
+# 1) temp markdown = title-page metadata + full body (body keeps its own H1)
+$body = Get-Content "Working_instructions.md" -Raw
+$meta = @"
+---
+title: "AI Accelerator Dashboard"
+subtitle: "Working Instructions — Operator Guide"
+author: "Quadrant Technologies"
+date: "<Month D, YYYY>"
+---
+"@
+$tmp = Join-Path $env:TEMP "wi_build.md"
+Set-Content $tmp ($meta + "`n`n" + $body) -Encoding UTF8
+
+# 2) pandoc -> title block + TOC + body
+pandoc $tmp -f gfm -o "AI_Accelerator_Dashboard_Working_Instructions.docx" --toc
+
+# 3) Word COM: force title(p1) / TOC(p2) / content(p3+) via page breaks, then update TOC
+$out = (Resolve-Path "AI_Accelerator_Dashboard_Working_Instructions.docx").Path
+$word = New-Object -ComObject Word.Application; $word.Visible = $false
+$doc = $word.Documents.Open($out)
+$toc = $doc.TablesOfContents.Item(1); $r = $toc.Range.Duplicate; $r.Collapse(1); $r.InsertBreak(7)  # break before TOC
+$h1 = ($doc.Paragraphs | Where-Object { $_.Style.NameLocal -eq 'Heading 1' } | Select-Object -First 1)
+$r2 = $h1.Range.Duplicate; $r2.Collapse(1); $r2.InsertBreak(7)                                        # break before first H1
+$doc.Fields.Update() | Out-Null; foreach ($t in $doc.TablesOfContents) { $t.Update() }
+$doc.Save(); $doc.Close(); $word.Quit()
+```
+Verify with Word COM that the `Title` paragraph is on page 1, `TablesOfContents(1)` on page 2, and
+the first `Heading 1` on page 3 (`Range.Information(3)` = `wdActiveEndPageNumber`).
+
+To publish the updated `.docx` to Azure Blob (only when explicitly asked), upload it to
+`aiacceldash/ai-accelerator-dashboard/AI_Accelerator_Dashboard_Working_Instructions.docx` using
+**account-key auth** (see §7) with content-type
+`application/vnd.openxmlformats-officedocument.wordprocessingml.document`.
+
+---
+
+## 7. Azure login & permissions
 
 - Sign in against tenant `0eadb77e-42dc-47f8-bbe3-ec2395e0712c`.
 - Current working account: **`rajesh.kodaganti@quadranttechnologies.com`** — has **Contributor**
@@ -106,7 +164,7 @@ unless you have explicitly been asked to change server logic. Never overwrite th
 
 ---
 
-## 7. Editing discipline
+## 8. Editing discipline
 
 - Make only the change requested. No unrequested refactors, features, comments, or docs.
 - `index.html` is large and single-file; use targeted edits with sufficient surrounding context.
@@ -122,7 +180,7 @@ unless you have explicitly been asked to change server logic. Never overwrite th
 
 ---
 
-## 8. Known behavior / gotchas
+## 9. Known behavior / gotchas
 
 - Data loads in two stages: the embedded snapshot renders instantly, then the live workbook is
   fetched from `/workbook.xlsx` (Graph proxy) and replaces it. Live data is gated on Graph

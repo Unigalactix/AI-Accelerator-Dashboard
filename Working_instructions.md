@@ -35,7 +35,6 @@ Design principles:
 | `.env` | **Local-only** runtime config (git-ignored, untracked). Holds `SHAREPOINT_URL`, `SHEET_NAME`, `REFRESH_SECONDS`. |
 | `README.md` | Older notes describing a GitHub Pages variant (see §11 — the live app uses Azure App Service, not Pages). |
 | `Working_instructions.md` | This document. |
-| `AGENTS.md` | Mandatory instructions for AI agents working on this repo. Read before editing/redeploying. Excluded from the distributed `AI_Accelerator_Dashboard_Files.zip`. |
 | `app.zip` | Deploy artifact (git-ignored). Contains `index.html` + the **production** `dev-server.js` + `package.json`. Kept in sync after every `index.html` change (see §8.4); only deployed when explicitly asked. |
 | `AI_Accelerator_Dashboard_Files.zip` | Full project snapshot distributed via Azure Blob (`aiacceldash`). Sensitive (bundles `.env`); container public access disabled. |
 
@@ -250,8 +249,7 @@ Deployment has completed successfully
 
 ### 8.3 After deploying
 - Hard-refresh the live URL (**Ctrl+F5**) to bust the browser cache and see changes.
-- The zip deploy ships whatever is in your **working tree** — you do not need to commit first to
-  deploy, but see §9 for the source-control policy.
+- The zip deploy ships whatever is in your local working folder.
 - The Kudu regional SCM host confirms status at `/api/deployments/latest` (`complete=True`,
   `active=True`). The simple `ai-accelerator-dashboard.scm.azurewebsites.net` does NOT resolve —
   use the regional host in §3.
@@ -264,20 +262,21 @@ when explicitly asked (§8.2). Leave the **production** `dev-server.js` + `packa
 
 ---
 
-## 9. Source control & branching
+## 9. Project snapshot storage (Azure Blob)
 
-- **Repo:** `Unigalactix/AI-Accelerator-Dashboard`.
-- **Commit identity:** always commit as *Unigalactix*:
-  ```powershell
-  git add <files>
-  git -c user.name="Unigalactix" -c user.email="Unigalactix@users.noreply.github.com" commit -m "message"
-  ```
-- **Branches:**
-  - `main` — includes the `/.env` server endpoint and the header-filter dropdown redesign.
-  - `Qtheme/Dashboard` — the full Quadrant brand theme (masthead, KPI tiles, animated background,
-    themed drill-down drawer).
-- **Policy:** only commit / push / deploy when explicitly asked. Verify changes by building and
-  running locally — do not push or deploy just to test.
+The full project snapshot is distributed as `AI_Accelerator_Dashboard_Files.zip` from Azure Blob
+Storage:
+
+| Thing | Value |
+|-------|-------|
+| **Storage account** | `aiacceldash` (Resource Group `AI_Governance_RG`) |
+| **Blob container** | `ai-accelerator-dashboard` (public access **disabled**) |
+| **Blob (file)** | `AI_Accelerator_Dashboard_Files.zip` |
+| **Blob path** | `aiacceldash/ai-accelerator-dashboard/AI_Accelerator_Dashboard_Files.zip` |
+
+> ⚠️ **Sensitive:** the snapshot bundles `.env`. Keep the container private — never enable public
+> access. The deploy account has **no** `Storage Blob Data *` data-plane role, so use **account-key
+> auth** (not `--auth-mode login`) for blob upload/download.
 
 ---
 
