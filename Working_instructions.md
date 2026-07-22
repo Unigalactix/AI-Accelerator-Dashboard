@@ -35,7 +35,9 @@ Design principles:
 | `.env` | **Local-only** runtime config (git-ignored, untracked). Holds `SHAREPOINT_URL`, `SHEET_NAME`, `REFRESH_SECONDS`. |
 | `README.md` | Older notes describing a GitHub Pages variant (see §11 — the live app uses Azure App Service, not Pages). |
 | `Working_instructions.md` | This document. |
-| `app.zip` | Build artifact used for deployment (git-ignored). Regenerated on every deploy. |
+| `AGENTS.md` | Mandatory instructions for AI agents working on this repo. Read before editing/redeploying. Excluded from the distributed `AI_Accelerator_Dashboard_Files.zip`. |
+| `app.zip` | Deploy artifact (git-ignored). Contains `index.html` + the **production** `dev-server.js` + `package.json`. Kept in sync after every `index.html` change (see §8.4); only deployed when explicitly asked. |
+| `AI_Accelerator_Dashboard_Files.zip` | Full project snapshot distributed via Azure Blob (`aiacceldash`). Sensitive (bundles `.env`); container public access disabled. |
 
 > **Important:** `.env` and `app.zip` are git-ignored. Never commit secrets. In the cloud, config
 > comes from **App Service application settings**, not from `.env`.
@@ -82,12 +84,14 @@ SharePoint file is shared with them. An org-wide sharing link = every domain use
 | Public URL | `https://ai-accelerator-dashboard-cyhgc2f3axg3bgau.westus-01.azurewebsites.net` |
 | Kudu / SCM site | `https://ai-accelerator-dashboard-cyhgc2f3axg3bgau.scm.westus-01.azurewebsites.net` |
 | OS / Runtime | Linux, **Node 22 LTS** |
-| **Azure App Service Plan** | `B1` (Basic), West US |
-| **Azure Resource Group** | `MSSA_DataAgent_POC` |
+| **Azure App Service Plan** | `SKU` — `B1` (Basic), West US |
+| **Azure Resource Group** | `AI_Governance_RG` (West US). All resources were moved here from the old `MSSA_DataAgent_POC`. |
+| **Azure Storage account** | `aiacceldash` (hosts the distributed `AI_Accelerator_Dashboard_Files.zip`) |
+| **Azure Application Insights** | `ai-accelerator-dashboard` |
 | Startup command | `node dev-server.js` |
 | **Microsoft Entra ID** tenant | Quadrant Technologies — `0eadb77e-42dc-47f8-bbe3-ec2395e0712c` |
 | **Azure subscription** | `Project-AI` — `36710d9e-2ce6-4c69-a8ce-52501abd6c10` |
-| Deploy account | `venkata.kaushik@quadranttechnologies.com` (subscription **Owner**) |
+| Deploy account | `rajesh.kodaganti@quadranttechnologies.com` (**Contributor** on `AI_Governance_RG`) |
 | Easy Auth app registration (client ID) | `2e037e64-e05c-4b7b-88e6-52975be7a763` |
 
 > ⚠️ **Subscription gotcha:** the deploy account also has access to another subscription
@@ -229,7 +233,7 @@ Compress-Archive -Path index.html, dev-server.js, package.json -DestinationPath 
 
 # 5. Deploy
 az webapp deploy `
-  --resource-group MSSA_DataAgent_POC `
+  --resource-group AI_Governance_RG `
   --name ai-accelerator-dashboard `
   --src-path app.zip `
   --type zip
@@ -248,6 +252,15 @@ Deployment has completed successfully
 - Hard-refresh the live URL (**Ctrl+F5**) to bust the browser cache and see changes.
 - The zip deploy ships whatever is in your **working tree** — you do not need to commit first to
   deploy, but see §9 for the source-control policy.
+- The Kudu regional SCM host confirms status at `/api/deployments/latest` (`complete=True`,
+  `active=True`). The simple `ai-accelerator-dashboard.scm.azurewebsites.net` does NOT resolve —
+  use the regional host in §3.
+
+### 8.4 Keeping `app.zip` in sync (no redeploy)
+After **every** change to `index.html`, refresh the copy of `index.html` inside `app.zip` so the
+artifact stays current — but **do NOT redeploy** to App Service. Only rebuild the zip; deploy only
+when explicitly asked (§8.2). Leave the **production** `dev-server.js` + `package.json` inside
+`app.zip` untouched — the bundled `dev-server.js` uses Easy Auth and differs from the local-dev one.
 
 ---
 
@@ -272,7 +285,8 @@ Deployment has completed successfully
 
 | Symptom | Likely cause / fix |
 |---------|--------------------|
-| `az webapp deploy` fails with `AuthorizationFailed` | Token expired or wrong subscription. Re-run `az login --use-device-code`, then `az account set --subscription 36710d9e-2ce6-4c69-a8ce-52501abd6c10`. |
+| `az webapp deploy` fails with `AuthorizationFailed` | Token expired or wrong subscription. Re-run `az login --use-device-code`, then `az account set --subscription 36710d9e-2ce6-4c69-a8ce-52501abd6c10`. Confirm you are on `AI_Governance_RG`. |
+| Blob upload fails with `AuthorizationFailed` | Data-plane role missing / stale token. Use **account-key auth** for `aiacceldash`, and re-run `az login` if the token is stale. |
 | Deploy hits the wrong subscription | Login defaulted to "Microsoft Partner Network". Always run the `az account set` step. |
 | Device-code login "hangs" | Don't pipe `az login` through `Select-Object`/`Where-Object` — it can swallow the prompt. Run it plain. |
 | Dashboard loads but shows embedded snapshot, not live data | The browser never got `/workbook.xlsx`. Confirm the server is generating `/.env` with `WORKBOOK_URL=/workbook.xlsx`, and that Graph can read the file (check server logs for `[live] error`). |
@@ -286,7 +300,7 @@ Useful diagnostics:
 
 ```powershell
 # Stream live App Service logs
-az webapp log tail --resource-group MSSA_DataAgent_POC --name ai-accelerator-dashboard
+az webapp log tail --resource-group AI_Governance_RG --name ai-accelerator-dashboard
 
 # Confirm current identity/subscription
 az account show --query "{user:user.name, sub:name, id:id}" -o json
@@ -309,13 +323,15 @@ historical context.
 
 ```text
 Web App:            ai-accelerator-dashboard
-Resource Group:     MSSA_DataAgent_POC
+Resource Group:     AI_Governance_RG   (moved from MSSA_DataAgent_POC)
+Storage account:    aiacceldash
 Subscription:       Project-AI  (36710d9e-2ce6-4c69-a8ce-52501abd6c10)
 Tenant:             0eadb77e-42dc-47f8-bbe3-ec2395e0712c  (Quadrant Technologies)
+Deploy account:     rajesh.kodaganti@quadranttechnologies.com  (Contributor)
 URL:                https://ai-accelerator-dashboard-cyhgc2f3axg3bgau.westus-01.azurewebsites.net
-Runtime:            Linux, Node 22, Plan B1
+Runtime:            Linux, Node 22, Plan SKU (B1)
 Startup:            node dev-server.js
 Sheet:              Accelerator Inventory
 Deploy artifact:    app.zip  (index.html + dev-server.js + package.json)
-Deploy command:     az webapp deploy -g MSSA_DataAgent_POC -n ai-accelerator-dashboard --src-path app.zip --type zip
+Deploy command:     az webapp deploy -g AI_Governance_RG -n ai-accelerator-dashboard --src-path app.zip --type zip
 ```
