@@ -180,7 +180,32 @@ To publish the updated `.docx` to Azure Blob (only when explicitly asked), uploa
 
 ---
 
-## 9. Known behavior / gotchas
+## 9. Footer & version numbering — MANDATORY
+
+The dashboard footer (`<footer>` in `index.html`) MUST always contain, in order:
+
+1. `AI Accelerator Portfolio Dashboard`
+2. `Version <b id="appVersion">X.Y.Z</b>`
+3. `Last updated <b id="lastUpdated">…</b>` — rendered as **date + time** (the JS uses
+   `toLocaleString` with `hour`/`minute`, not just the date). Do not drop the timestamp.
+4. Right-aligned company branding (`.foot-brand`, pushed over with `margin-left:auto`):
+   `© Quadrant Technologies LLC` as a hyperlink to `https://www.quadranttechnologies.com/`
+   (`target="_blank" rel="noopener noreferrer"`). Keep this on the opposite side of the footer.
+
+### Bump `appVersion` on every functional change (semver `X.Y.Z`)
+Update the `#appVersion` number whenever you change the dashboard, matching the scale of the change:
+
+- **Patch (`x.x.Z` → 1.0.1, 1.0.2, …):** small changes / minor additions — **NOT bug fixes**
+  (fixes alone do not bump the version).
+- **Minor (`x.Y.x` → 1.1.0, 1.2.0, …):** slightly bigger changes / new functionality.
+- **Major (`X.x.x` → 2.0.0, …):** big change from a **UX perspective** (redesign, layout overhaul,
+  major workflow change).
+
+Always bump the version in the SAME edit as the change it describes.
+
+---
+
+## 10. Known behavior / gotchas
 
 - Data loads in two stages: the embedded snapshot renders instantly, then the live workbook is
   fetched from `/workbook.xlsx` (Graph proxy) and replaces it. Live data is gated on Graph

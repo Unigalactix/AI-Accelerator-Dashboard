@@ -323,6 +323,9 @@
   footer { margin-top:40px; padding-top:18px; border-top:1px solid var(--line); font-size:11px; color:var(--mist); display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
   footer b { color:var(--slate); font-weight:600; }
   footer .foot-sep { opacity:.5; }
+  footer .foot-brand { margin-left:auto; }
+  footer .foot-brand a { color:var(--slate); font-weight:600; text-decoration:none; }
+  footer .foot-brand a:hover { color:var(--ink); text-decoration:underline; }
   /* Live data-source bar */
   .datasource {
     display:flex; align-items:center; gap:12px; flex-wrap:wrap;
@@ -505,9 +508,10 @@
   <footer>
     <span>AI Accelerator Portfolio Dashboard</span>
     <span class="foot-sep">&middot;</span>
-    <span>Version <b id="appVersion">1.0.0</b></span>
+    <span>Version <b id="appVersion">1.0.1</b></span>
     <span class="foot-sep">&middot;</span>
     <span>Last updated <b id="lastUpdated">&mdash;</b></span>
+    <span class="foot-brand">&copy; <a href="https://www.quadranttechnologies.com/" target="_blank" rel="noopener noreferrer">Quadrant Technologies LLC</a></span>
   </footer>
 </div>
 
@@ -559,7 +563,7 @@ function enrich(arr){
   return arr;
 }
 document.getElementById('today').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
-document.getElementById('lastUpdated').textContent = new Date().toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+document.getElementById('lastUpdated').textContent = new Date().toLocaleString('en-US',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
 document.getElementById('totalCount').textContent = AGENTS.length;
 
 const count = (arr,key,val) => arr.filter(a=>a[key]===val).length;
