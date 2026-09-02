@@ -104,19 +104,46 @@ async function getToken(req) {
   return cliTokenCache.value;
 }
 
-// ---- fetch the live workbook -------------------------------
-async function fetchWorkbook(req) {
+async function getLocalProfile(req) {
+  const token = await getToken(req);
+  const profileRes = await fetch(`${GRAPH}/me?$select=displayName,mail,userPrincipalName`, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!profileRes.ok) throw new Error('profile ' + profileRes.status);
+  return profileRes.json();
+}
+
+// ---- fetch the live workbook (in-memory cached) ------------
+// The last workbook bytes + change signature are cached so repeat requests and
+// client polls don't re-download from Graph.
+//   - Local (single CLI user): within a short TTL we serve straight from cache
+//     and skip Graph entirely.
+//   - App Service (multi-user Easy Auth): we still make the cheap metadata call
+//     on every request so each user's own view access is honoured, but the big
+//     content download is skipped whenever the file is unchanged.
+const MULTIUSER = !!process.env.WEBSITE_SITE_NAME;
+const WB_TTL_MS = 20000; // local fast-path freshness window
+let wbCache = { buf: null, etag: null, modified: null, fetchedAt: 0 };
+
+async function getWorkbook(req) {
+  const now = Date.now();
+  // Local single-user fast path: fresh enough — serve cache, don't touch Graph.
+  if (wbCache.buf && !MULTIUSER && now - wbCache.fetchedAt < WB_TTL_MS) return wbCache;
   const token = await getToken(req);
   const headers = { Authorization: 'Bearer ' + token };
-  // metadata (for the change signature) + content
+  // Cheap metadata call: detects change and (on App Service) authorises the user.
   const metaRes = await fetch(`${GRAPH}/shares/${shareId}/driveItem?$select=lastModifiedDateTime,size`, { headers });
   if (!metaRes.ok) { const err = new Error('meta ' + metaRes.status + ' ' + (await metaRes.text())); err.status = metaRes.status; throw err; }
   const meta = await metaRes.json();
+  const etag = `"${meta.lastModifiedDateTime}:${meta.size}"`;
+  // Unchanged since last download: reuse cached bytes, just refresh the timestamp.
+  if (wbCache.buf && wbCache.etag === etag) { wbCache.fetchedAt = now; return wbCache; }
+  // Changed or first load: download the content once, then cache it.
   const contentRes = await fetch(`${GRAPH}/shares/${shareId}/driveItem/content`, { headers });
   if (!contentRes.ok) { const err = new Error('content ' + contentRes.status); err.status = contentRes.status; throw err; }
   const buf = Buffer.from(await contentRes.arrayBuffer());
-  const etag = `"${meta.lastModifiedDateTime}:${meta.size}"`;
-  return { buf, etag, modified: meta.lastModifiedDateTime };
+  wbCache = { buf, etag, modified: meta.lastModifiedDateTime, fetchedAt: now };
+  return wbCache;
 }
 
 // ---- static file serving -----------------------------------
@@ -145,6 +172,28 @@ function serveStatic(req, res) {
 // ---- server ------------------------------------------------
 http.createServer(async (req, res) => {
   const urlPath = req.url.split('?')[0];
+  // Local Easy Auth compatibility: expose basic account claims only, never the
+  // Azure CLI access token. On App Service, the platform owns this endpoint.
+  if (urlPath === '/.auth/me' && !MULTIUSER) {
+    try {
+      const profile = await getLocalProfile(req);
+      const email = profile.mail || profile.userPrincipalName || '';
+      const body = [{
+        provider_name: 'aad',
+        user_id: email,
+        user_claims: [
+          { typ: 'name', val: profile.displayName || email },
+          { typ: 'preferred_username', val: email }
+        ]
+      }];
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(body));
+    } catch (e) {
+      res.writeHead(401, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Azure CLI sign-in required' }));
+    }
+    return;
+  }
   // Client runtime config. Generated from server env so the browser knows to
   // read the live proxy (/workbook.xlsx) and which sheet to parse. This keeps
   // SHAREPOINT_URL server-side only (never shipped to the browser).
@@ -160,8 +209,8 @@ http.createServer(async (req, res) => {
   }
   if (urlPath === LIVE_PATH) {
     try {
-      const { buf, etag, modified } = await fetchWorkbook(req);
-      if (req.headers['if-none-match'] === etag) { res.writeHead(304).end(); return; }
+      const { buf, etag, modified } = await getWorkbook(req);
+      if (req.headers['if-none-match'] === etag) { res.writeHead(304, { 'ETag': etag, 'Cache-Control': 'no-store' }).end(); return; }
       res.writeHead(200, {
         'Content-Type': MIME['.xlsx'],
         'ETag': etag,
@@ -188,4 +237,11 @@ http.createServer(async (req, res) => {
   console.log(`\n  Workbook proxy server running on port ${PORT}`);
   console.log(`  Live workbook proxied at:      ${LIVE_PATH}`);
   console.log(`  Graph auth: ${mode}. Ctrl+C to stop.\n`);
+  // Warm the cache at boot so the first browser request is instant. Only local
+  // (CLI token) — App Service needs a per-user token that isn't available yet.
+  if (!MULTIUSER) {
+    getWorkbook({ headers: {} })
+      .then(w => console.log(`[warm] cached workbook (${w.buf.length} bytes)`))
+      .catch(e => console.log('[warm] skipped: ' + e.message));
+  }
 });

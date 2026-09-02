@@ -17,8 +17,9 @@ charts, governance flags, and a filterable / sortable asset table.
 
 Design principles:
 
-- **No build step, no framework.** The entire UI is vanilla HTML + CSS + JavaScript in one file
-  (`index.html`), using **SheetJS** (loaded from a CDN) to parse the workbook.
+- **No build step, no framework.** The dashboard is vanilla HTML + CSS + JavaScript in
+  `index.html`, with authentication UI split into `login.html` and `js/auth.js`. **SheetJS**
+  (loaded from a CDN) parses the workbook.
 - **A tiny zero-dependency Node.js proxy** (`dev-server.js`) serves the page and fetches the live
   workbook from SharePoint through **Microsoft Graph**, so the browser never sees secrets and never
   hits CORS.
@@ -30,12 +31,15 @@ Design principles:
 | File | Purpose |
 |------|---------|
 | `index.html` | The entire dashboard — HTML + CSS + JS in one file, plus an embedded fallback data snapshot. |
+| `login.html` | Standalone branded login page. Shows the active Azure CLI account locally and uses App Service Easy Auth endpoints in Azure. |
+| `js/auth.js` | Dashboard session check, Entra profile display, manual logout, and automatic logout after one hour of inactivity. |
+| `quadrant-logo.png` | Quadrant Technologies logo displayed on the login page. |
 | `dev-server.js` | Zero-dependency **Node.js** proxy server. Serves the folder and proxies the live workbook via **Microsoft Graph** at `/workbook.xlsx`. Also generates a safe client config at `/.env`. |
 | `package.json` | Node metadata + `start` script (`node dev-server.js`). Engines: Node >= 20. |
 | `.env` | **Local-only** runtime config (git-ignored, untracked). Holds `SHAREPOINT_URL`, `SHEET_NAME`, `REFRESH_SECONDS`. |
 | `README.md` | Older notes describing a GitHub Pages variant (see §11 — the live app uses Azure App Service, not Pages). |
 | `Working_instructions.md` | This document. |
-| `app.zip` | Deploy artifact (git-ignored). Contains `index.html` + the **production** `dev-server.js` + `package.json`. Kept in sync after every `index.html` change (see §8.4); only deployed when explicitly asked. |
+| `app.zip` | Deploy artifact (git-ignored). Contains `index.html`, `login.html`, `js/auth.js`, `quadrant-logo.png`, the **production** `dev-server.js`, and `package.json`. Kept in sync after web-asset changes (see §8.4); only deployed when explicitly asked. |
 | `AI_Accelerator_Dashboard_Files.zip` | Full project snapshot distributed via Azure Blob (`aiacceldash`). Sensitive (bundles `.env`); container public access disabled. |
 
 > **Important:** `.env` and `app.zip` are git-ignored. Never commit secrets. In the cloud, config
@@ -50,10 +54,11 @@ Someone edits the Asset Register workbook in SharePoint Online
       │
       ▼
 User opens the dashboard URL (Azure App Service)
-      │  Azure App Service Authentication ("Easy Auth") requires
-      │  Microsoft Entra ID sign-in (@quadranttechnologies.com)
+  │  Easy Auth requires Microsoft Entra ID sign-in
+  │  before protected application files are returned
       ▼
-Browser loads index.html, then fetches:
+Browser loads index.html + js/auth.js, then fetches:
+   • GET /.auth/me      → user name/email claims for the profile control
    • GET /.env          → server returns SHEET_NAME, WORKBOOK_URL=/workbook.xlsx, REFRESH_SECONDS
    • GET /workbook.xlsx → dev-server.js proxies the live file via Microsoft Graph
       │
@@ -67,6 +72,11 @@ SheetJS parses the sheet named SHEET_NAME → dashboard renders live KPIs & char
       ▼
 If the workbook can't be read → dashboard shows the embedded snapshot baked into index.html
 ```
+
+`login.html` is the editable branded login experience. It is used directly for local development.
+In the current production configuration, ARM-managed Easy Auth protects every static path, so an
+anonymous request is challenged by Microsoft Entra ID before `login.html` can render. The file is
+deployed for authenticated/sign-out flows and future file-based Easy Auth configuration.
 
 **Key idea:** each signed-in user reads the workbook with **their own**
 Microsoft Graph token. So *signing in is not the same as seeing data* — a user only sees rows if the
@@ -107,16 +117,32 @@ SharePoint file is shared with them. An org-wide sharing link = every domain use
 ### 4.1 Azure App Service Authentication ("Easy Auth")
 - Configured with **Microsoft Entra ID** as the identity provider (app registration client ID
   `2e037e64-e05c-4b7b-88e6-52975be7a763`).
-- Forces every visitor to sign in with a `@quadranttechnologies.com` account before the app loads.
+- Requires every visitor to sign in with a `@quadranttechnologies.com` account before protected
+  application files load.
 - On each request, Easy Auth injects the user's Microsoft Graph access token as the
   `X-MS-TOKEN-AAD-ACCESS-TOKEN` HTTP header. `dev-server.js` reads that header to call Graph **as the
   user**.
 - Admin consent for the required **delegated** Microsoft Graph scopes was granted tenant-wide.
+- `js/auth.js` reads `/.auth/me` to show the signed-in user's initials, display name, and email in
+  the dashboard masthead. **Sign out** calls `/.auth/logout`.
+- Keyboard, pointer, touch, wheel, and scroll activity reset a one-hour inactivity deadline. When
+  the deadline expires, the app signs out through Easy Auth.
+
+> **Branded pre-login limitation:** ARM-managed Easy Auth currently reports
+> `requireAuthentication=true`, `RedirectToLoginPage`, and no persisted `excludedPaths`. Attempts
+> to add exclusions for `login.html` are normalized away by the service. Do not switch the whole
+> app to anonymous access because `index.html` embeds portfolio data. A production branded
+> pre-login page requires a separately reviewed **file-based Easy Auth configuration**.
 
 ### 4.2 Local development auth
 - There is no Easy Auth locally, so `dev-server.js` falls back to the **Azure CLI** token:
   it shells out to `az account get-access-token --resource https://graph.microsoft.com`.
-- That means you must be logged in with `az login` locally to see live data.
+- The local server exposes a safe Easy Auth-compatible `/.auth/me` response containing only the
+  active user's display name and email; the Azure CLI token is never sent to the browser.
+- Opening `/` without a local preview session redirects to `login.html`. Select **Continue to
+  dashboard** to create the tab-scoped preview session and display that profile in the masthead.
+- Manual logout and the one-hour inactivity timeout clear the local session and return to
+  `login.html`.
 
 ### 4.3 Data visibility
 - Reading the workbook uses **delegated** Graph permissions (the signed-in user's own access).
@@ -166,10 +192,14 @@ replace `.env` in the cloud:
 - **`shareId`** — encodes `SHAREPOINT_URL` into Microsoft Graph's `u!`-prefixed base64 sharing token.
 - **`getToken(req)`** — returns the Easy Auth user token from `X-MS-TOKEN-AAD-ACCESS-TOKEN` if present;
   otherwise falls back to a cached Azure CLI token (local dev).
+- **`getLocalProfile(req)`** — local-only Microsoft Graph `/me` lookup used to return basic account
+  claims without exposing the Azure CLI token.
 - **`fetchWorkbook(req)`** — calls Microsoft Graph:
   - `GET /shares/{shareId}/driveItem?$select=lastModifiedDateTime,size` (metadata → ETag)
   - `GET /shares/{shareId}/driveItem/content` (the actual `.xlsx` bytes)
 - **Routes:**
+  - `GET /.auth/me` → locally returns the active Azure CLI user's basic profile claims. On Azure,
+    this route is owned by Easy Auth.
   - `GET /.env` → returns safe client config (`SHEET_NAME`, `WORKBOOK_URL=/workbook.xlsx`, `REFRESH_SECONDS`).
   - `GET /workbook.xlsx` → the live proxied workbook (supports `ETag` / `304 Not Modified`).
   - everything else → static file serving from the folder (with a path-traversal guard).
@@ -194,8 +224,10 @@ az login --tenant 0eadb77e-42dc-47f8-bbe3-ec2395e0712c
 node dev-server.js       # or: npm start
 ```
 
-Open `http://localhost:5173/`. The server logs `[live] served workbook ...` each time it proxies the
-file. If the workbook can't be read, the page falls back to the embedded snapshot.
+Open `http://localhost:5173/`. A new tab/session first opens `login.html`, showing the active Azure
+CLI account. Select **Continue to dashboard**. The profile appears in the dashboard masthead, and
+the server logs `[live] served workbook ...` each time it proxies the file. If the workbook can't
+be read, the page falls back to the embedded snapshot.
 
 > Do not double-click `index.html` (the `file://` scheme blocks fetching `/.env` and `/workbook.xlsx`).
 > Always go through the server.
@@ -204,7 +236,8 @@ file. If the workbook can't be read, the page falls back to the embedded snapsho
 
 ## 8. Deploy to Azure App Service
 
-Deployment is a **zip deploy** of three files: `index.html`, `dev-server.js`, `package.json`.
+Deployment is a **zip deploy** of six entries: `index.html`, `login.html`, `js/auth.js`,
+`quadrant-logo.png`, the production `dev-server.js`, and `package.json`.
 
 ### 8.1 One-time prerequisites
 - **Azure CLI** installed and logged in.
@@ -225,18 +258,34 @@ az account set --subscription 36710d9e-2ce6-4c69-a8ce-52501abd6c10
 # 3. Confirm identity + subscription
 az account show --query "{user:user.name, sub:name, id:id}" -o json
 
-# 4. Sanity-check the server parses, then (re)build the zip
+# 4. Sanity-check source scripts
 node --check dev-server.js
-if (Test-Path app.zip) { Remove-Item app.zip -Force }
-Compress-Archive -Path index.html, dev-server.js, package.json -DestinationPath app.zip -Force
+node --check js/auth.js
 
-# 5. Deploy
+# 5. Refresh web assets in the EXISTING zip. This preserves the production server.
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zip = [IO.Compression.ZipFile]::Open("app.zip", [IO.Compression.ZipArchiveMode]::Update)
+try {
+  foreach ($relative in @("index.html", "login.html", "js/auth.js", "quadrant-logo.png")) {
+    $existing = $zip.GetEntry($relative)
+    if ($existing) { $existing.Delete() }
+    [IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+      $zip, (Resolve-Path $relative).Path, $relative,
+      [IO.Compression.CompressionLevel]::Optimal
+    ) | Out-Null
+  }
+} finally { $zip.Dispose() }
+
+# 6. Deploy
 az webapp deploy `
   --resource-group AI_Governance_RG `
   --name ai-accelerator-dashboard `
   --src-path app.zip `
   --type zip
 ```
+
+> **Never rebuild `app.zip` with the workspace `dev-server.js`.** The workspace copy is the local
+> Azure CLI variant; the existing ZIP contains the 9,165-byte production Easy Auth variant.
 
 A successful deploy prints progression like:
 
@@ -255,10 +304,11 @@ Deployment has completed successfully
   use the regional host in §3.
 
 ### 8.4 Keeping `app.zip` in sync (no redeploy)
-After **every** change to `index.html`, refresh the copy of `index.html` inside `app.zip` so the
-artifact stays current — but **do NOT redeploy** to App Service. Only rebuild the zip; deploy only
-when explicitly asked (§8.2). Leave the **production** `dev-server.js` + `package.json` inside
-`app.zip` untouched — the bundled `dev-server.js` uses Easy Auth and differs from the local-dev one.
+After **every** change to `index.html`, `login.html`, `js/auth.js`, or `quadrant-logo.png`, refresh
+the corresponding entry inside `app.zip` so the artifact stays current — but **do NOT redeploy**
+to App Service unless explicitly asked (§8.2). Leave the **production** `dev-server.js` +
+`package.json` inside `app.zip` untouched — the bundled server uses Easy Auth and differs from the
+local-dev one.
 
 ---
 
@@ -294,6 +344,8 @@ Storage:
 | Wrong / empty table | `SHEET_NAME` doesn't match the workbook tab exactly (currently `Accelerator Inventory`). |
 | Changes not visible after deploy | Hard-refresh (Ctrl+F5); the browser cached the old page. |
 | Local page can't read `.env` | You opened it via `file://`. Serve through `node dev-server.js` at `http://localhost:5173/`. |
+| Branded login page does not appear before Entra sign-in in Azure | Expected with the current ARM-managed Easy Auth configuration: all static paths are protected and `excludedPaths` does not persist. Do not enable global anonymous access; use reviewed file-based Easy Auth configuration. |
+| User is unexpectedly signed out | The dashboard automatically signs out after one hour without keyboard, pointer, touch, wheel, or scroll activity. |
 
 Useful diagnostics:
 
@@ -331,6 +383,8 @@ URL:                https://ai-accelerator-dashboard-cyhgc2f3axg3bgau.westus-01.
 Runtime:            Linux, Node 22, Plan SKU (B1)
 Startup:            node dev-server.js
 Sheet:              Accelerator Inventory
-Deploy artifact:    app.zip  (index.html + dev-server.js + package.json)
+Dashboard version:  1.1.4
+Deploy artifact:    app.zip  (index.html + login.html + js/auth.js + quadrant-logo.png
+                    + production dev-server.js + package.json)
 Deploy command:     az webapp deploy -g AI_Governance_RG -n ai-accelerator-dashboard --src-path app.zip --type zip
 ```

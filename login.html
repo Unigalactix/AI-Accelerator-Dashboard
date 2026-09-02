@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sign in — AI Accelerator & Agent Portfolio</title>
+<style>
+  :root {
+    --ink:#1a1f35; --slate:#5f5b72; --mist:#948fa6; --rose:#c0264e;
+    --grad:linear-gradient(120deg,#1a1f35 0%,#48009f 42%,#8929fe 74%,#db2777 108%);
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    min-height:100vh; display:grid; place-items:center; padding:32px 20px;
+    background:var(--grad); color:var(--ink); font-family:'Helvetica Neue',Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .login-panel {
+    width:min(440px,calc(100vw - 40px)); padding:38px 36px 34px; border:1px solid rgba(255,255,255,.58);
+    border-radius:12px; background:rgba(255,255,255,.97); box-shadow:0 30px 80px rgba(26,31,53,.36);
+  }
+  .brand { margin-bottom:34px; }
+  .brand-logo { display:block; width:min(240px,100%); height:auto; }
+  h1 {
+    margin-bottom:12px; font-family:Georgia,'Times New Roman',serif; font-weight:700;
+    font-size:40px; line-height:1.02; letter-spacing:-.5px;
+  }
+  h1 em { color:#6d28d9; font-style:italic; }
+  p { color:var(--slate); font-size:14px; line-height:1.6; }
+  .account { display:none; align-items:center; gap:11px; margin-top:22px; padding:11px; border:1px solid #e7e2f0; border-radius:8px; }
+  .account.show { display:flex; }
+  .avatar {
+    width:38px; height:38px; display:grid; place-items:center; flex:none; border-radius:50%;
+    background:#ece1fb; color:#5b1fc0; font-size:12px; font-weight:800;
+  }
+  .identity { min-width:0; line-height:1.25; }
+  .identity b,.identity span { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .identity b { font-size:12.5px; }
+  .identity span { margin-top:3px; color:var(--mist); font-size:10.5px; }
+  .login-button {
+    display:flex; align-items:center; justify-content:center; gap:11px; width:100%; margin-top:24px;
+    padding:12px 18px; border:0; border-radius:8px; background:var(--ink); color:#fff;
+    font:700 13.5px inherit; text-decoration:none; cursor:pointer; transition:background .14s ease,transform .14s ease;
+  }
+  .login-button:hover { background:#322b5f; transform:translateY(-1px); }
+  .login-button[aria-disabled="true"] { opacity:.55; pointer-events:none; }
+  .ms-mark { width:18px; height:18px; display:grid; grid-template-columns:1fr 1fr; gap:2px; flex:none; }
+  .ms-mark i:nth-child(1) { background:#f35325; } .ms-mark i:nth-child(2) { background:#81bc06; }
+  .ms-mark i:nth-child(3) { background:#05a6f0; } .ms-mark i:nth-child(4) { background:#ffba08; }
+  .message { margin-top:16px; color:var(--mist); font-size:11.5px; text-align:center; }
+  .message.error { color:var(--rose); }
+  @media(max-width:520px){ .login-panel{padding:32px 25px 28px;} }
+</style>
+</head>
+<body>
+<main class="login-panel" aria-labelledby="loginTitle">
+  <div class="brand">
+    <img class="brand-logo" src="quadrant-logo.png" width="240" height="36" alt="Quadrant Technologies">
+  </div>
+  <h1 id="loginTitle">AI <em>Accelerator</em> &amp;<br>Agent Portfolio</h1>
+  <p id="intro">Sign in with your Quadrant Microsoft account to open the leadership dashboard.</p>
+  <div class="account" id="account">
+    <span class="avatar" id="avatar" aria-hidden="true">Q</span>
+    <span class="identity"><b id="userName"></b><span id="userEmail"></span></span>
+  </div>
+  <a class="login-button" id="loginButton" href="/.auth/login/aad?post_login_redirect_uri=%2F">
+    <span class="ms-mark" id="msMark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <span id="buttonText">Sign in with Microsoft</span>
+  </a>
+  <p class="message" id="message">Quadrant Technologies accounts only</p>
+</main>
+<script>
+  const LOCAL_HOSTS = new Set(['localhost','127.0.0.1','::1']);
+  const isLocal = LOCAL_HOSTS.has(location.hostname);
+  const isAzure = /\.azurewebsites\.net$/i.test(location.hostname);
+  const params = new URLSearchParams(location.search);
+  const requestedReturn = params.get('returnTo') || '/';
+  const returnTo = requestedReturn.startsWith('/') && !requestedReturn.startsWith('//') ? requestedReturn : '/';
+  if(params.get('reason') === 'inactive'){
+    document.getElementById('message').textContent = 'You were signed out after 1 hour of inactivity.';
+  }
+
+  function claim(user,...types){
+    const claims = Array.isArray(user && user.user_claims) ? user.user_claims : [];
+    for(const type of types){
+      const needle = type.toLowerCase();
+      const item = claims.find(value=>{
+        const actual = String(value.typ || '').toLowerCase();
+        return actual === needle || actual.endsWith('/' + needle);
+      });
+      if(item && item.val) return String(item.val);
+    }
+    return '';
+  }
+  function initials(name){
+    const parts = String(name || '').replace(/\s*\([^)]*\)\s*$/,'').trim().split(/\s+/).filter(Boolean);
+    return (((parts[0] && parts[0][0]) || '') + ((parts.length > 1 && parts[parts.length-1][0]) || '')).toUpperCase() || 'Q';
+  }
+  function showAccount(user){
+    const email = claim(user,'preferred_username','emailaddress','email','upn') || String(user.user_id || '');
+    const name = claim(user,'name') || email.split('@')[0] || 'Quadrant user';
+    document.getElementById('avatar').textContent = initials(name);
+    document.getElementById('userName').textContent = name;
+    document.getElementById('userEmail').textContent = email;
+    document.getElementById('account').classList.add('show');
+    document.getElementById('msMark').style.display = 'none';
+    document.getElementById('buttonText').textContent = 'Continue to dashboard';
+    document.getElementById('loginButton').href = returnTo;
+    document.getElementById('loginButton').addEventListener('click',()=>{
+      if(isLocal) sessionStorage.setItem('aiDash.localAuth','1');
+    });
+    if(params.get('reason') !== 'inactive'){
+      document.getElementById('message').textContent = isLocal ? 'Local preview uses your active Azure CLI account' : 'Signed in with Microsoft Entra ID';
+    }
+  }
+  function showError(message){
+    const messageEl = document.getElementById('message');
+    messageEl.textContent = message;
+    messageEl.classList.add('error');
+    if(isLocal){
+      document.getElementById('loginButton').setAttribute('aria-disabled','true');
+      document.getElementById('buttonText').textContent = 'Azure CLI sign-in required';
+    }
+  }
+  async function initialize(){
+    if(!isLocal && !isAzure){
+      document.getElementById('msMark').style.display = 'none';
+      document.getElementById('buttonText').textContent = 'Continue to dashboard';
+      document.getElementById('loginButton').href = returnTo;
+      return;
+    }
+    try{
+      const response = await fetch('/.auth/me',{cache:'no-store',credentials:'same-origin'});
+      if(response.ok){
+        const users = await response.json();
+        const user = Array.isArray(users) ? users.find(item=>String(item.provider_name || '').toLowerCase()==='aad') || users[0] : null;
+        if(user){ showAccount(user); return; }
+      }
+      if(isLocal) showError('Run az login for the Quadrant tenant, then refresh this page.');
+      else document.getElementById('loginButton').href = '/.auth/login/aad?post_login_redirect_uri=' + encodeURIComponent(returnTo);
+    }catch(_){
+      showError(isLocal ? 'The local server could not read your Azure CLI profile.' : 'The sign-in service is temporarily unavailable.');
+    }
+  }
+  initialize();
+</script>
+</body>
+</html>
