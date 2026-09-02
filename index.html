@@ -68,6 +68,25 @@
     font-size:40px; line-height:1.02; letter-spacing:-.5px; color:#ffffff;
   }
   h1 em { font-style:italic; color:#f7b9e2; }
+  .masthead-side { display:flex; flex-direction:column; align-items:flex-end; gap:14px; }
+  .user-profile {
+    display:flex; align-items:center; gap:10px; max-width:340px; padding:7px 9px 7px 7px;
+    border:1px solid rgba(255,255,255,.24); border-radius:8px; background:rgba(255,255,255,.11);
+    color:#fff; backdrop-filter:blur(8px);
+  }
+  .user-profile[hidden] { display:none; }
+  .user-avatar {
+    width:36px; height:36px; border-radius:50%; display:grid; place-items:center; flex:none;
+    background:#fff; color:#5b1fc0; font-size:12px; font-weight:800; letter-spacing:.04em;
+  }
+  .user-identity { min-width:0; text-align:left; line-height:1.2; }
+  .user-name { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+  .user-email { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:3px; color:rgba(255,255,255,.7); font-size:10px; }
+  .user-logout {
+    margin-left:5px; padding-left:12px; border-left:1px solid rgba(255,255,255,.22); color:#fff;
+    font-size:11px; font-weight:700; text-decoration:none; white-space:nowrap;
+  }
+  .user-logout:hover { text-decoration:underline; }
   .masthead-meta { text-align:right; font-size:12px; color:rgba(255,255,255,.72); }
   .masthead-meta strong { display:block; font-size:26px; color:#ffffff; font-family:Georgia,serif; }
 
@@ -410,6 +429,10 @@
     .kpis{grid-template-columns:repeat(2,1fr);}
     .cols2,.cols3{grid-template-columns:1fr;}
     h1{font-size:30px;}
+    header.top{align-items:flex-start;}
+    .masthead-side{width:100%;align-items:flex-start;}
+    .masthead-meta{text-align:left;}
+    .user-profile{max-width:100%;}
     .hide-sm{display:none;}
   }
 </style>
@@ -422,10 +445,20 @@
       <div class="brand-eyebrow">AI Center of Excellence &middot; Portfolio Intelligence</div>
       <h1>The <em>Accelerator</em> &amp;<br>Agent Portfolio</h1>
     </div>
-    <div class="masthead-meta">
-      <strong id="totalCount">&mdash;&mdash;</strong>
-      assets under management<br>
-      Snapshot &middot; <span id="today"></span>
+    <div class="masthead-side">
+      <div class="user-profile" id="userProfile" hidden>
+        <span class="user-avatar" id="userAvatar" aria-hidden="true"></span>
+        <span class="user-identity">
+          <b class="user-name" id="userName"></b>
+          <span class="user-email" id="userEmail"></span>
+        </span>
+        <a class="user-logout" id="userLogout" href="/login.html">Sign out</a>
+      </div>
+      <div class="masthead-meta">
+        <strong id="totalCount">&mdash;&mdash;</strong>
+        assets under management<br>
+        Snapshot &middot; <span id="today"></span>
+      </div>
     </div>
   </header>
 
@@ -508,7 +541,7 @@
   <footer>
     <span>AI Accelerator Portfolio Dashboard</span>
     <span class="foot-sep">&middot;</span>
-    <span>Version <b id="appVersion">1.0.1</b></span>
+    <span>Version <b id="appVersion">1.1.4</b></span>
     <span class="foot-sep">&middot;</span>
     <span>Last updated <b id="lastUpdated">&mdash;</b></span>
     <span class="foot-brand">&copy; <a href="https://www.quadranttechnologies.com/" target="_blank" rel="noopener noreferrer">Quadrant Technologies LLC</a></span>
@@ -520,6 +553,7 @@
     <div class="drawer-head">
       <div>
         <div class="dt-eyebrow" id="drawerEyebrow">Drill-down</div>
+      <script src="js/auth.js"></script>
         <h3 id="drawerTitle">&nbsp;</h3>
         <div class="dt-sub" id="drawerSub"></div>
       </div>
@@ -1477,11 +1511,16 @@ function initDataSource(){
   });
 }
 
-masterRender();
-// Paint last-good data instantly (survives refreshes) so the user never waits
-// on empty placeholders; live data then refreshes in the background.
-hydrateFromCache();
-loadEnv().then(initDataSource);
+async function startDashboard(){
+  await loadEnv();
+  if(!await initAuthentication()) return;
+  masterRender();
+  // Paint last-good data instantly (survives refreshes) so the user never waits
+  // on empty placeholders; live data then refreshes in the background.
+  hydrateFromCache();
+  initDataSource();
+}
+startDashboard();
 </script>
 </body>
 </html>

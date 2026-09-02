@@ -10,10 +10,15 @@ These rules are mandatory. Do not skip, reorder, or "optimize" them away.
 AI Accelerator Portfolio — a **single-page leadership dashboard** that visualizes an
 accelerator/agent inventory sourced from a live SharePoint workbook.
 
-- **`index.html`** — the ENTIRE dashboard (vanilla JS + SheetJS/XLSX + MSAL, no build step).
-  It has an embedded fallback snapshot and reads runtime config from `/.env` at startup.
+- **`index.html`** — the dashboard (vanilla JS + SheetJS/XLSX, no build step). It has an
+  embedded fallback snapshot, reads runtime config from `/.env`, and loads `js/auth.js`.
+- **`login.html`** — standalone branded login page. Locally it previews the active Azure CLI
+  account; in Azure, App Service Easy Auth remains the identity provider.
+- **`js/auth.js`** — dashboard profile/logout wiring and the one-hour inactivity logout timer.
+- **`quadrant-logo.png`** — Quadrant Technologies logo used by `login.html`.
 - **`dev-server.js`** — Node HTTP server that (a) serves static files and (b) proxies the
-  live workbook from Microsoft Graph at `/workbook.xlsx`, emitting client config at `/.env`.
+  live workbook from Microsoft Graph at `/workbook.xlsx`, emits client config at `/.env`, and
+  provides a token-free local `/.auth/me` compatibility response from the Azure CLI profile.
 - **`package.json`** — `npm start` → `node dev-server.js`. Node `>=20`. No other build.
 - **`app.zip`** — the App Service deployment artifact (see §5).
 - **`AI_Accelerator_Dashboard_Files.zip`** — full project snapshot distributed via Azure Blob.
@@ -31,9 +36,10 @@ There are two DIFFERENT versions of `dev-server.js`:
 - **Production version** (bundled inside `app.zip`, ~9,165 bytes): authenticates via
   **App Service Easy Auth** (`X-MS-TOKEN-AAD-ACCESS-TOKEN` header / `.auth/me`).
 
-They are NOT interchangeable. When updating `app.zip`, **only replace `index.html`** inside it
-unless you have explicitly been asked to change server logic. Never overwrite the production
-`dev-server.js` with the local-dev one.
+They are NOT interchangeable. When updating `app.zip`, replace only the web assets that changed
+(`index.html`, `login.html`, `js/auth.js`, and/or `quadrant-logo.png`) unless you have explicitly
+been asked to change production server logic. Never overwrite the production `dev-server.js` with
+the local-dev one.
 
 ---
 
@@ -85,11 +91,14 @@ unless you have explicitly been asked to change server logic. Never overwrite th
   - NOTE: `ai-accelerator-dashboard.scm.azurewebsites.net` does NOT resolve — never use it.
 
 ### Deploy procedure (only when explicitly asked)
-1. Update `index.html` inside `app.zip` (leave production `dev-server.js` + `package.json` untouched).
+1. Update the changed web assets inside `app.zip` (`index.html`, `login.html`, `js/auth.js`, and
+  `quadrant-logo.png`); leave production `dev-server.js` + `package.json` untouched.
 2. Deploy: `az webapp deploy --resource-group AI_Governance_RG --name ai-accelerator-dashboard --src-path app.zip --type zip`
 3. Verify via the Kudu regional SCM host `/api/deployments/latest` (`complete=True`, `active=True`).
 4. The site is behind **Easy Auth** (Quadrant tenant sign-in). It CANNOT be verified anonymously —
-   an anonymous fetch returns the login page, not the dashboard HTML.
+  current ARM-managed auth protects all static paths, including `login.html`; an anonymous fetch
+  receives the Easy Auth challenge before application HTML. The branded page is fully testable
+  locally. Making it the production pre-login page requires approved file-based Easy Auth config.
 
 ---
 
@@ -173,10 +182,10 @@ To publish the updated `.docx` to Azure Blob (only when explicitly asked), uploa
 - Do NOT create markdown docs to describe your changes unless explicitly asked.
 - Preserve the existing data-normalization logic (the `norm*` functions and header-based
   column mapping) — the workbook columns are matched by header name, not fixed index.
-- After EVERY update to `index.html`, refresh the copy of `index.html` inside `app.zip` so the
-  artifact stays in sync — but **do NOT redeploy to App Service**. Only update the zip; deploy
-  only when the user explicitly asks (see §5). Leave the production `dev-server.js` +
-  `package.json` inside `app.zip` untouched.
+- After EVERY update to a deployed web asset (`index.html`, `login.html`, `js/auth.js`, or
+  `quadrant-logo.png`), refresh that asset inside `app.zip` so the artifact stays in sync — but
+  **do NOT redeploy to App Service**. Only update the zip; deploy only when the user explicitly
+  asks (see §5). Leave the production `dev-server.js` + `package.json` inside `app.zip` untouched.
 
 ---
 
@@ -214,3 +223,7 @@ Always bump the version in the SAME edit as the change it describes.
   critical, write results to a temp file and read that file back.
 - If a user lacks SharePoint access, the proxy returns `403` with a `requestAccessUrl`; the
   dashboard shows a "Request access" modal. This is expected, not a bug.
+- The production Easy Auth configuration currently has `requireAuthentication=true` and no
+  persisted `excludedPaths`. Do not set global anonymous access just to expose `login.html`:
+  `index.html` embeds portfolio data. Use file-based Easy Auth configuration if a branded
+  production pre-login page is explicitly approved.

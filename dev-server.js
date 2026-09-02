@@ -104,6 +104,15 @@ async function getToken(req) {
   return cliTokenCache.value;
 }
 
+async function getLocalProfile(req) {
+  const token = await getToken(req);
+  const profileRes = await fetch(`${GRAPH}/me?$select=displayName,mail,userPrincipalName`, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!profileRes.ok) throw new Error('profile ' + profileRes.status);
+  return profileRes.json();
+}
+
 // ---- fetch the live workbook (in-memory cached) ------------
 // The last workbook bytes + change signature are cached so repeat requests and
 // client polls don't re-download from Graph.
@@ -163,6 +172,28 @@ function serveStatic(req, res) {
 // ---- server ------------------------------------------------
 http.createServer(async (req, res) => {
   const urlPath = req.url.split('?')[0];
+  // Local Easy Auth compatibility: expose basic account claims only, never the
+  // Azure CLI access token. On App Service, the platform owns this endpoint.
+  if (urlPath === '/.auth/me' && !MULTIUSER) {
+    try {
+      const profile = await getLocalProfile(req);
+      const email = profile.mail || profile.userPrincipalName || '';
+      const body = [{
+        provider_name: 'aad',
+        user_id: email,
+        user_claims: [
+          { typ: 'name', val: profile.displayName || email },
+          { typ: 'preferred_username', val: email }
+        ]
+      }];
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(body));
+    } catch (e) {
+      res.writeHead(401, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Azure CLI sign-in required' }));
+    }
+    return;
+  }
   // Client runtime config. Generated from server env so the browser knows to
   // read the live proxy (/workbook.xlsx) and which sheet to parse. This keeps
   // SHAREPOINT_URL server-side only (never shipped to the browser).
